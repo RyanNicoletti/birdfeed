@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Bird Feed</title>
+    </head>
+    <body>
+        <h1>Bird Feed</h1>
+        <h3>
+            Aggregated articles and news from around the web about avian
+            influenza
+        </h3>
+        <button id="fetch_articles_btn" onclick="fetch_articles()">
+            Fetch Articles
+        </button>
+        <script>
+            async function fetch_articles() {
+                try {
+                    let response = await fetch("./api/get_articles");
+                    console.log(response);
+                    if (!response.ok) {
+                        console.log("error fetching articles");
+                    }
+                    let articles = await response.json();
+                    console.log(articles);
+                    return articles;
+                } catch (err) {
+                    console.log(err);
+                }
+            }
+        </script>
+    </body>
+</html>
