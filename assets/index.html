@@ -11,7 +11,11 @@
             Aggregated articles and news from around the web about avian
             influenza
         </h3>
-        <button id="fetch_articles_btn" onclick="fetch_articles()">
+        <div class="articles">
+            <ul id="articles-list"></ul>
+        </div>
+
+        <button id="fetch_articles_btn" onclick="display_articles()">
             Fetch Articles
         </button>
         <script>
@@ -28,6 +32,19 @@
                 } catch (err) {
                     console.log(err);
                 }
+            }
+            async function display_articles() {
+                let articles = await fetch_articles();
+                let articles_list = document.getElementById("articles-list");
+                articles.forEach((a) => {
+                    const li = document.createElement("li");
+                    li.innerHTML = `
+                        <h2>${a.title}</h2>
+                        <a href="${a.link}">${a.link}</a>
+                        <p>${a.summary}</p>
+                        <p>${a.date_pub}</p>`;
+                    articles_list.appendChild(li);
+                });
             }
         </script>
     </body>
