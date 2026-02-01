@@ -1,10 +1,16 @@
 mod article;
+mod db;
 mod rss;
 mod scrape;
 mod source;
 use actix_files as fs;
 use actix_web::{App, Error, HttpRequest, HttpServer, Responder, Result, get, web};
 use source::Source;
+use std::env;
+
+struct AppState {
+    db_pool: sqlx::SqlitePool,
+}
 
 #[get("/")]
 async fn index(_req: HttpRequest) -> Result<fs::NamedFile, Error> {
@@ -13,7 +19,7 @@ async fn index(_req: HttpRequest) -> Result<fs::NamedFile, Error> {
 }
 
 #[get("/api/get_articles")]
-async fn get_articles(_req: HttpRequest) -> Result<impl Responder> {
+async fn get_articles(data: web::Data<AppState>) -> Result<impl Responder> {
     let sources: Vec<Source> = vec![
         Source::RSS {
             url: "https://www.cidrap.umn.edu/news/49/rss".to_string(),
@@ -39,8 +45,16 @@ async fn get_articles(_req: HttpRequest) -> Result<impl Responder> {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    HttpServer::new(|| {
+    dotenvy::dotenv().ok();
+    let db_url = env::var("DATABASE_URL").expect("Database url not set");
+    let db_pool = db::create_db(&db_url)
+        .await
+        .expect("Error creating the database");
+
+    let pool = web::Data::new(AppState { db_pool });
+    HttpServer::new(move || {
         App::new()
+            .app_data(pool.clone())
             .service(index)
             .service(get_articles)
             .service(fs::Files::new("/assets", "./assets"))
