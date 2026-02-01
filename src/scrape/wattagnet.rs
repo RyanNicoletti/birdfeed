@@ -1,7 +1,7 @@
 use crate::article::Article;
 use scraper::{Html, Selector};
 
-pub async fn fetch_articles(url: &str) -> Result<Vec<Article>, Box<dyn std::error::Error>> {
+pub async fn fetch_from_wag(url: &str) -> Result<Vec<Article>, Box<dyn std::error::Error>> {
     let response = reqwest::get(url).await?.text().await?;
 
     let document = Html::parse_document(&response);
@@ -47,6 +47,7 @@ pub async fn fetch_articles(url: &str) -> Result<Vec<Article>, Box<dyn std::erro
             link,
             summary,
             date_pub,
+            source: url.to_owned(),
         });
     }
 

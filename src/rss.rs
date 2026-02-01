@@ -12,6 +12,7 @@ pub async fn fetch_from_rss(url: &str) -> Result<Vec<Article>, Box<dyn std::erro
             link: chan.link().unwrap_or("No link found").to_string(),
             summary: chan.description().unwrap_or("No summary found").to_string(),
             date_pub: chan.pub_date().unwrap_or("No date found").to_string(),
+            source: url.to_owned(),
         })
     }
 

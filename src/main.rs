@@ -4,12 +4,21 @@ mod rss;
 mod scrape;
 mod source;
 use actix_files as fs;
-use actix_web::{App, Error, HttpRequest, HttpServer, Responder, Result, get, web};
+use actix_web::{
+    App, Error, HttpRequest, HttpResponse, HttpServer, Responder, Result, get, post, web,
+};
+use serde::Serialize;
 use source::Source;
 use std::env;
 
 struct AppState {
     db_pool: sqlx::SqlitePool,
+}
+
+#[derive(Serialize)]
+struct PostArticlesResponse {
+    status: String,
+    count: u64,
 }
 
 #[get("/")]
@@ -18,8 +27,10 @@ async fn index(_req: HttpRequest) -> Result<fs::NamedFile, Error> {
     Ok(fs::NamedFile::open(path)?)
 }
 
-#[get("/api/get_articles")]
-async fn get_articles(data: web::Data<AppState>) -> Result<impl Responder> {
+#[post("/api/post_articles")]
+async fn post_articles(
+    data: web::Data<AppState>,
+) -> Result<web::Json<PostArticlesResponse>, Error> {
     let sources: Vec<Source> = vec![
         Source::RSS {
             url: "https://www.cidrap.umn.edu/news/49/rss".to_string(),
@@ -39,9 +50,20 @@ async fn get_articles(data: web::Data<AppState>) -> Result<impl Responder> {
             Err(e) => eprintln!("Failed to fetch articles: {}", e),
         };
     }
-
-    Ok(web::Json(all_articles))
+    let num_inserted = db::insert_posts(all_articles, &data.db_pool)
+        .await
+        .expect("Error inserting articles into db");
+    Ok(web::Json(PostArticlesResponse {
+        status: "success".to_string(),
+        count: num_inserted,
+    }))
 }
+
+// #[get("/api/get_articles")]
+// async fn get_articles(data: web::Data<AppState>) -> Result<impl Responder> {
+
+//     Ok(web::Json(all_articles))
+// }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -56,7 +78,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(pool.clone())
             .service(index)
-            .service(get_articles)
+            .service(post_articles)
             .service(fs::Files::new("/assets", "./assets"))
     })
     .bind(("127.0.0.1", 8080))?
