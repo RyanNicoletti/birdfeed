@@ -15,11 +15,8 @@
             <ul id="articles-list"></ul>
         </div>
 
-        <button id="fetch_articles_btn" onclick="display_articles()">
-            Fetch Articles
-        </button>
         <script>
-            async function fetch_articles() {
+            async function get_articles() {
                 try {
                     let response = await fetch("./api/get_articles");
                     console.log(response);
@@ -33,8 +30,8 @@
                     console.log(err);
                 }
             }
-            async function display_articles() {
-                let articles = await fetch_articles();
+            async function add_articles_to_dom() {
+                let articles = await get_articles();
                 let articles_list = document.getElementById("articles-list");
                 articles.forEach((a) => {
                     const li = document.createElement("li");
@@ -46,6 +43,7 @@
                     articles_list.appendChild(li);
                 });
             }
+            document.addEventListener("DOMContentLoaded", add_articles_to_dom);
         </script>
     </body>
 </html>

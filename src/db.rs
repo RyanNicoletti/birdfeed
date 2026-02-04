@@ -12,6 +12,16 @@ pub async fn create_db(db_url: &str) -> Result<sqlx::SqlitePool, sqlx::Error> {
     Ok(pool)
 }
 
+pub async fn get_posts(db_pool: &SqlitePool) -> Result<Vec<article::Article>, sqlx::Error> {
+    let articles = sqlx::query_as!(
+        article::Article,
+        r#"SELECT title, link, summary, date_pub, source FROM articles ORDER BY fetched_at"#
+    )
+    .fetch_all(db_pool)
+    .await?;
+    Ok(articles)
+}
+
 pub async fn insert_posts(
     articles: Vec<article::Article>,
     db_pool: &SqlitePool,
@@ -22,15 +32,16 @@ pub async fn insert_posts(
     for a in articles {
         let inserted = sqlx::query!(
             r#"
-            INSERT INTO articles (title, link, summary, date_pub, fetched_at)
+            INSERT INTO articles (title, link, summary, date_pub, source, fetched_at)
             VALUES
-            (?1, ?2, ?3, ?4, ?5)
+            (?1, ?2, ?3, ?4, ?5, ?6)
             ON CONFLICT(title) DO NOTHING
             "#,
             a.title,
             a.link,
             a.summary,
             a.date_pub,
+            a.source,
             ts
         )
         .execute(&mut *conn)

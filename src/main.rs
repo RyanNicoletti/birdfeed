@@ -4,12 +4,11 @@ mod rss;
 mod scrape;
 mod source;
 use actix_files as fs;
-use actix_web::{
-    App, Error, HttpRequest, HttpResponse, HttpServer, Responder, Result, get, post, web,
-};
+use actix_web::{App, Error, HttpRequest, HttpServer, Responder, Result, get, web};
 use serde::Serialize;
 use source::Source;
 use std::env;
+use tokio_cron_scheduler::{Job, JobScheduler};
 
 struct AppState {
     db_pool: sqlx::SqlitePool,
@@ -27,7 +26,6 @@ async fn index(_req: HttpRequest) -> Result<fs::NamedFile, Error> {
     Ok(fs::NamedFile::open(path)?)
 }
 
-#[post("/api/post_articles")]
 async fn post_articles(
     data: web::Data<AppState>,
 ) -> Result<web::Json<PostArticlesResponse>, Error> {
@@ -59,11 +57,14 @@ async fn post_articles(
     }))
 }
 
-// #[get("/api/get_articles")]
-// async fn get_articles(data: web::Data<AppState>) -> Result<impl Responder> {
+#[get("/api/get_articles")]
+async fn get_articles(data: web::Data<AppState>) -> Result<impl Responder> {
+    let articles = db::get_posts(&data.db_pool)
+        .await
+        .expect("Error getting articles from db.");
 
-//     Ok(web::Json(all_articles))
-// }
+    Ok(web::Json(articles))
+}
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -72,13 +73,34 @@ async fn main() -> std::io::Result<()> {
     let db_pool = db::create_db(&db_url)
         .await
         .expect("Error creating the database");
-
+    let pool_for_cron = db_pool.clone();
     let pool = web::Data::new(AppState { db_pool });
+
+    let mut sched = JobScheduler::new().await.expect("couldnt feth articles???");
+
+    sched
+        .add(
+            Job::new_async("0 0 0 * * *", move |_uuid, _l| {
+                let db_pool = pool_for_cron.clone();
+                Box::pin(async move {
+                    match article::post_articles(&db_pool).await {
+                        Ok(num) => println!("Articles fetched: {}", num),
+                        Err(e) => eprintln!("Failed to fetch articles: {}", e),
+                    }
+                })
+            })
+            .expect("fuck"),
+        )
+        .await
+        .expect("FUCK");
+
+    sched.start().await.expect("bruh");
+
     HttpServer::new(move || {
         App::new()
             .app_data(pool.clone())
             .service(index)
-            .service(post_articles)
+            .service(get_articles)
             .service(fs::Files::new("/assets", "./assets"))
     })
     .bind(("127.0.0.1", 8080))?
