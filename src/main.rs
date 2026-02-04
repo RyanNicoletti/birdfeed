@@ -5,8 +5,6 @@ mod scrape;
 mod source;
 use actix_files as fs;
 use actix_web::{App, Error, HttpRequest, HttpServer, Responder, Result, get, web};
-use serde::Serialize;
-use source::Source;
 use std::env;
 use tokio_cron_scheduler::{Job, JobScheduler};
 
@@ -14,47 +12,10 @@ struct AppState {
     db_pool: sqlx::SqlitePool,
 }
 
-#[derive(Serialize)]
-struct PostArticlesResponse {
-    status: String,
-    count: u64,
-}
-
 #[get("/")]
 async fn index(_req: HttpRequest) -> Result<fs::NamedFile, Error> {
     let path: std::path::PathBuf = "./assets/index.html".parse().unwrap();
     Ok(fs::NamedFile::open(path)?)
-}
-
-async fn post_articles(
-    data: web::Data<AppState>,
-) -> Result<web::Json<PostArticlesResponse>, Error> {
-    let sources: Vec<Source> = vec![
-        Source::RSS {
-            url: "https://www.cidrap.umn.edu/news/49/rss".to_string(),
-        },
-        Source::PoultryWorld {
-            url: "https://www.poultryworld.net/".to_string(),
-        },
-        Source::WattAgNet {
-            url: "https://www.wattagnet.com/broilers-turkeys/diseases-health".to_string(),
-        },
-    ];
-    let mut all_articles: Vec<article::Article> = Vec::new();
-
-    for source in sources {
-        match source.fetch_articles().await {
-            Ok(articles) => all_articles.extend(articles),
-            Err(e) => eprintln!("Failed to fetch articles: {}", e),
-        };
-    }
-    let num_inserted = db::insert_posts(all_articles, &data.db_pool)
-        .await
-        .expect("Error inserting articles into db");
-    Ok(web::Json(PostArticlesResponse {
-        status: "success".to_string(),
-        count: num_inserted,
-    }))
 }
 
 #[get("/api/get_articles")]
@@ -76,9 +37,9 @@ async fn main() -> std::io::Result<()> {
     let pool_for_cron = db_pool.clone();
     let pool = web::Data::new(AppState { db_pool });
 
-    let mut sched = JobScheduler::new().await.expect("couldnt feth articles???");
+    let scheduler = JobScheduler::new().await.expect("");
 
-    sched
+    scheduler
         .add(
             Job::new_async("0 0 0 * * *", move |_uuid, _l| {
                 let db_pool = pool_for_cron.clone();
@@ -89,12 +50,15 @@ async fn main() -> std::io::Result<()> {
                     }
                 })
             })
-            .expect("fuck"),
+            .expect("Unexpected error scheduling new async cron job."),
         )
         .await
-        .expect("FUCK");
+        .expect("Unexpected error adding a new scheduled job");
 
-    sched.start().await.expect("bruh");
+    scheduler
+        .start()
+        .await
+        .expect("Unexpected error starting the cron job");
 
     HttpServer::new(move || {
         App::new()
