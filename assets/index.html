@@ -35,11 +35,13 @@
                 let articles_list = document.getElementById("articles-list");
                 articles.forEach((a) => {
                     const li = document.createElement("li");
+                    let date_pub = a.date_pub !== "" ? a.date_pub : "Not found";
+                    let summary = a.summary !== "" ? a.summary : "Not found";
                     li.innerHTML = `
                         <h2>${a.title}</h2>
                         <a href="${a.link}">${a.link}</a>
-                        <p>${a.summary}</p>
-                        <p>${a.date_pub}</p>`;
+                        <p>Summary: ${summary}</p>
+                        <p>Date published: ${date_pub}</p>`;
                     articles_list.appendChild(li);
                 });
             }

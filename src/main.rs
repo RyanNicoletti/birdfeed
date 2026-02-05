@@ -41,7 +41,7 @@ async fn main() -> std::io::Result<()> {
 
     scheduler
         .add(
-            Job::new_async("0 0 0 * * *", move |_uuid, _l| {
+            Job::new_async("7 7 7 * * *", move |_uuid, _l| {
                 let db_pool = pool_for_cron.clone();
                 Box::pin(async move {
                     match article::post_articles(&db_pool).await {
