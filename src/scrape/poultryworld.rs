@@ -35,6 +35,7 @@ pub async fn fetch_from_pw(url: &str) -> Result<Vec<Article>, Box<dyn std::error
                     summary: String::new(),
                     date_pub,
                     source: url.to_owned(),
+                    fetched_at: chrono::offset::Local::now().to_rfc3339(),
                 });
             }
         }

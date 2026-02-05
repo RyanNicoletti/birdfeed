@@ -15,7 +15,7 @@ pub async fn create_db(db_url: &str) -> Result<sqlx::SqlitePool, sqlx::Error> {
 pub async fn get_posts(db_pool: &SqlitePool) -> Result<Vec<article::Article>, sqlx::Error> {
     let articles = sqlx::query_as!(
         article::Article,
-        r#"SELECT title, link, summary, date_pub, source FROM articles ORDER BY fetched_at"#
+        r#"SELECT title, link, summary, date_pub, source, fetched_at FROM articles ORDER BY fetched_at"#
     )
     .fetch_all(db_pool)
     .await?;

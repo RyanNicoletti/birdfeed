@@ -13,6 +13,7 @@ pub async fn fetch_from_rss(url: &str) -> Result<Vec<Article>, Box<dyn std::erro
             summary: chan.description().unwrap_or("No summary found").to_string(),
             date_pub: chan.pub_date().unwrap_or("No date found").to_string(),
             source: url.to_owned(),
+            fetched_at: chrono::offset::Local::now().to_rfc3339(),
         })
     }
 

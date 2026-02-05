@@ -48,6 +48,7 @@ pub async fn fetch_from_wag(url: &str) -> Result<Vec<Article>, Box<dyn std::erro
             summary,
             date_pub,
             source: url.to_owned(),
+            fetched_at: chrono::offset::Local::now().to_rfc3339(),
         });
     }
 

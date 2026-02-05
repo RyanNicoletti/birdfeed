@@ -3,6 +3,8 @@ use crate::source::Source;
 use serde::Serialize;
 use sqlx::{Pool, Sqlite};
 
+const KEYWORDS: &[&str] = &["flu", "influenza", "hpai"];
+
 #[derive(Debug, Clone, Serialize)]
 pub struct Article {
     pub title: String,
@@ -10,6 +12,7 @@ pub struct Article {
     pub summary: String,
     pub date_pub: String,
     pub source: String,
+    pub fetched_at: String,
 }
 
 pub async fn post_articles(db_pool: &Pool<Sqlite>) -> Result<u64, Box<dyn std::error::Error>> {
@@ -32,7 +35,12 @@ pub async fn post_articles(db_pool: &Pool<Sqlite>) -> Result<u64, Box<dyn std::e
             Err(e) => eprintln!("Failed to fetch articles: {}", e),
         };
     }
-    let num_inserted = db::insert_posts(all_articles, db_pool)
+    let filtered_articles: Vec<Article> = all_articles
+        .into_iter()
+        .filter(|a| KEYWORDS.iter().any(|w| a.title.to_lowercase().contains(w)))
+        .collect();
+
+    let num_inserted = db::insert_posts(filtered_articles, db_pool)
         .await
         .expect("Error inserting articles into db");
     Ok(num_inserted)

@@ -11,15 +11,12 @@
             Aggregated articles and news from around the web about avian
             influenza
         </h3>
-        <div class="articles">
-            <ul id="articles-list"></ul>
-        </div>
+        <div id="articles-list"></div>
 
         <script>
             async function get_articles() {
                 try {
                     let response = await fetch("./api/get_articles");
-                    console.log(response);
                     if (!response.ok) {
                         console.log("error fetching articles");
                     }
@@ -30,20 +27,41 @@
                     console.log(err);
                 }
             }
+            function group_by_fetched_at(articles) {
+                grouped = {};
+                for (const article of articles) {
+                    const fetched_at = article.fetched_at.split("T")[0];
+                    if (!grouped[fetched_at]) {
+                        grouped[fetched_at] = [];
+                    }
+                    grouped[fetched_at].push(article);
+                }
+                return grouped;
+            }
             async function add_articles_to_dom() {
                 let articles = await get_articles();
-                let articles_list = document.getElementById("articles-list");
-                articles.forEach((a) => {
-                    const li = document.createElement("li");
-                    let date_pub = a.date_pub !== "" ? a.date_pub : "Not found";
-                    let summary = a.summary !== "" ? a.summary : "Not found";
-                    li.innerHTML = `
-                        <h2>${a.title}</h2>
-                        <a href="${a.link}">${a.link}</a>
-                        <p>Summary: ${summary}</p>
-                        <p>Date published: ${date_pub}</p>`;
-                    articles_list.appendChild(li);
-                });
+                const grouped = group_by_fetched_at(articles);
+                const articles_list = document.getElementById("articles-list");
+                const sorted_articles = Object.keys(grouped).sort().reverse();
+                for (const date of sorted_articles) {
+                    const header = document.createElement("h3");
+                    header.textContent = date;
+                    articles_list.appendChild(header);
+
+                    const ul = document.createElement("ul");
+                    console.log(grouped[date]);
+                    for (const article of grouped[date]) {
+                        const li = document.createElement("li");
+                        li.innerHTML = `
+                                                  <h3>${article.title}</h3>
+                                                  <a href="${article.link}">${article.link}</a>
+                                                  <p>${article.summary}</p>
+                                                  <p>Published: ${article.date_pub}</p>
+                                                  <p>Source: ${article.source}</p>`;
+                        ul.appendChild(li);
+                    }
+                    articles_list.appendChild(ul);
+                }
             }
             document.addEventListener("DOMContentLoaded", add_articles_to_dom);
         </script>
