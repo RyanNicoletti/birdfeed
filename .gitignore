@@ -1,2 +1,6 @@
 /target
 .env
+.env.production
+*.db
+*.db-shm
+*.db-wal
