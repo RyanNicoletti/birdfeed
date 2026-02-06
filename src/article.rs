@@ -3,7 +3,7 @@ use crate::source::Source;
 use serde::Serialize;
 use sqlx::{Pool, Sqlite};
 
-const KEYWORDS: &[&str] = &["flu", "influenza", "hpai"];
+const KEYWORDS: &[&str] = &["flu", "influenza", "hpai", "h5"];
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Article {
