@@ -14,56 +14,72 @@
         <div id="articles-list"></div>
 
         <script>
-            async function get_articles() {
+            async function get_dates() {
                 try {
-                    let response = await fetch("./api/get_articles");
+                    let response = await fetch("./api/dates");
                     if (!response.ok) {
-                        console.log("error fetching articles");
+                        console.log("error fetching dates");
                     }
-                    let articles = await response.json();
-                    console.log(articles);
-                    return articles;
+                    return await response.json();
                 } catch (err) {
                     console.log(err);
                 }
             }
-            function group_by_fetched_at(articles) {
-                grouped = {};
-                for (const article of articles) {
-                    const fetched_at = article.fetched_at.split("T")[0];
-                    if (!grouped[fetched_at]) {
-                        grouped[fetched_at] = [];
-                    }
-                    grouped[fetched_at].push(article);
-                }
-                return grouped;
-            }
-            async function add_articles_to_dom() {
-                let articles = await get_articles();
-                const grouped = group_by_fetched_at(articles);
-                const articles_list = document.getElementById("articles-list");
-                const sorted_articles = Object.keys(grouped).sort().reverse();
-                for (const date of sorted_articles) {
-                    const header = document.createElement("h3");
-                    header.textContent = date;
-                    articles_list.appendChild(header);
 
-                    const ul = document.createElement("ul");
-                    console.log(grouped[date]);
-                    for (const article of grouped[date]) {
+            async function get_articles_by_date(date) {
+                try {
+                    let response = await fetch(`./api/articles/${date}`);
+                    if (!response.ok) {
+                        console.log("error fetching articles for date");
+                    }
+                    return await response.json();
+                } catch (err) {
+                    console.log(err);
+                }
+            }
+
+            async function toggle_date(header, date) {
+                const content = header.nextElementSibling;
+
+                if (content.style.display === "block") {
+                    content.style.display = "none";
+                    return;
+                }
+                if (content.children.length === 0) {
+                    const articles = await get_articles_by_date(date);
+                    for (const article of articles) {
                         const li = document.createElement("li");
                         li.innerHTML = `
-                                                  <h3>${article.title}</h3>
-                                                  <a href="${article.link}">${article.link}</a>
-                                                  <p>${article.summary}</p>
-                                                  <p>Published: ${article.date_pub}</p>
-                                                  <p>Source: ${article.source}</p>`;
-                        ul.appendChild(li);
+                                <h4>${article.title}</h4>
+                                <a href="${article.link}">${article.link}</a>
+                                <p>${article.summary}</p>
+                                <p>Published: ${article.date_pub}</p>
+                                <p>Source: ${article.source}</p>
+                            `;
+                        content.appendChild(li);
                     }
-                    articles_list.appendChild(ul);
+                }
+                content.style.display = "block";
+            }
+
+            async function build_date_list() {
+                const dates = await get_dates();
+                const container = document.getElementById("articles-list");
+
+                for (const item of dates) {
+                    const header = document.createElement("h3");
+                    header.textContent = `${item.date} (${item.count} articles)`;
+                    header.style.cursor = "pointer";
+                    header.addEventListener("click", () =>
+                        toggle_date(header, item.date),
+                    );
+                    container.appendChild(header);
+                    const ul = document.createElement("ul");
+                    ul.style.display = "none";
+                    container.appendChild(ul);
                 }
             }
-            document.addEventListener("DOMContentLoaded", add_articles_to_dom);
+            document.addEventListener("DOMContentLoaded", build_date_list);
         </script>
     </body>
 </html>

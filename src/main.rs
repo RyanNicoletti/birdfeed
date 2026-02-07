@@ -27,6 +27,25 @@ async fn get_articles(data: web::Data<AppState>) -> Result<impl Responder> {
     Ok(web::Json(articles))
 }
 
+#[get("/api/dates")]
+async fn get_dates(data: web::Data<AppState>) -> Result<impl Responder> {
+    let dates = db::get_all_dates(&data.db_pool)
+        .await
+        .expect("Error getting dates from db.");
+    Ok(web::Json(dates))
+}
+
+#[get("api/articles/{date}")]
+async fn get_articles_by_date(
+    data: web::Data<AppState>,
+    date: web::Path<String>,
+) -> Result<impl Responder> {
+    let articles = db::get_articles_by_date(&data.db_pool, &date)
+        .await
+        .expect("Error getting articles from db.");
+    Ok(web::Json(articles))
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenvy::dotenv().ok();
@@ -65,6 +84,8 @@ async fn main() -> std::io::Result<()> {
             .app_data(pool.clone())
             .service(index)
             .service(get_articles)
+            .service(get_dates)
+            .service(get_articles_by_date)
             .service(fs::Files::new("/assets", "./assets"))
     })
     .bind(("127.0.0.1", 8080))?
