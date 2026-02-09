@@ -9,13 +9,15 @@ use rss::Channel;
 pub async fn fetch_rss(url: &str) -> Result<Vec<Article>, Box<dyn std::error::Error>> {
     let body = reqwest::get(url).await?.bytes().await?;
     let channel = Channel::read_from(&body[..])?;
-
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
     let mut articles: Vec<Article> = Vec::new();
 
     for item in channel.items() {
         let raw_date = item.pub_date().unwrap_or("");
         let date_pub = normalize_rss_date(raw_date);
-
+        if date_pub != today {
+            continue;
+        }
         articles.push(Article {
             title: item.title().unwrap_or("No title found").to_string(),
             link: item.link().unwrap_or("No link found").to_string(),
