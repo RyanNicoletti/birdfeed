@@ -1,10 +1,9 @@
 mod article;
 mod db;
-mod rss;
 mod scrape;
 mod source;
-use actix_files as fs;
-use actix_web::{App, Error, HttpRequest, HttpServer, Responder, Result, get, web};
+use actix_web::{App, HttpResponse, HttpServer, get, web};
+use askama::Template;
 use std::env;
 use tokio_cron_scheduler::{Job, JobScheduler};
 
@@ -12,38 +11,24 @@ struct AppState {
     db_pool: sqlx::SqlitePool,
 }
 
+#[derive(Template)]
+#[template(path = "index.html")]
+struct IndexTemplate {
+    dates: Vec<db::DateWithArticles>,
+}
+
 #[get("/")]
-async fn index(_req: HttpRequest) -> Result<fs::NamedFile, Error> {
-    let path: std::path::PathBuf = "./assets/index.html".parse().unwrap();
-    Ok(fs::NamedFile::open(path)?)
-}
-
-#[get("/api/get_articles")]
-async fn get_articles(data: web::Data<AppState>) -> Result<impl Responder> {
-    let articles = db::get_posts(&data.db_pool)
+async fn index(data: web::Data<AppState>) -> HttpResponse {
+    let dates = db::get_articles_by_pub_date(&data.db_pool)
         .await
-        .expect("Error getting articles from db.");
+        .unwrap_or_default();
 
-    Ok(web::Json(articles))
-}
+    let template = IndexTemplate { dates };
 
-#[get("/api/dates")]
-async fn get_dates(data: web::Data<AppState>) -> Result<impl Responder> {
-    let dates = db::get_all_dates(&data.db_pool)
-        .await
-        .expect("Error getting dates from db.");
-    Ok(web::Json(dates))
-}
-
-#[get("api/articles/{date}")]
-async fn get_articles_by_date(
-    data: web::Data<AppState>,
-    date: web::Path<String>,
-) -> Result<impl Responder> {
-    let articles = db::get_articles_by_date(&data.db_pool, &date)
-        .await
-        .expect("Error getting articles from db.");
-    Ok(web::Json(articles))
+    match template.render() {
+        Ok(html) => HttpResponse::Ok().content_type("text/html").body(html),
+        Err(e) => HttpResponse::InternalServerError().body(format!("Template error: {}", e)),
+    }
 }
 
 #[actix_web::main]
@@ -60,7 +45,7 @@ async fn main() -> std::io::Result<()> {
 
     scheduler
         .add(
-            Job::new_async("7 7 7 * * *", move |_uuid, _l| {
+            Job::new_async("0 0 0,12 * * *", move |_uuid, _l| {
                 let db_pool = pool_for_cron.clone();
                 Box::pin(async move {
                     match article::post_articles(&db_pool).await {
@@ -79,16 +64,8 @@ async fn main() -> std::io::Result<()> {
         .await
         .expect("Unexpected error starting the cron job");
 
-    HttpServer::new(move || {
-        App::new()
-            .app_data(pool.clone())
-            .service(index)
-            .service(get_articles)
-            .service(get_dates)
-            .service(get_articles_by_date)
-            .service(fs::Files::new("/assets", "./assets"))
-    })
-    .bind(("127.0.0.1", 8080))?
-    .run()
-    .await
+    HttpServer::new(move || App::new().app_data(pool.clone()).service(index))
+        .bind(("127.0.0.1", 8080))?
+        .run()
+        .await
 }

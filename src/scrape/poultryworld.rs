@@ -2,7 +2,7 @@ use crate::article::Article;
 use chrono::Utc;
 use scraper::{Html, Selector};
 
-pub async fn fetch_from_pw(url: &str) -> Result<Vec<Article>, Box<dyn std::error::Error>> {
+pub async fn fetch(url: &str) -> Result<Vec<Article>, Box<dyn std::error::Error>> {
     let html = reqwest::get(url).await?.text().await?;
     let document = Html::parse_document(&html);
 
@@ -50,13 +50,11 @@ fn normalize_date(raw_date: &str, current_year: &str) -> String {
 
     match parts.len() {
         2 => {
-            // "26-01" -> day-month, assume current year
             let day = parts[0];
             let month = parts[1];
             format!("{}-{}-{}", current_year, month, day)
         }
         3 => {
-            // "28-12-2025" -> day-month-year
             let day = parts[0];
             let month = parts[1];
             let year = parts[2];

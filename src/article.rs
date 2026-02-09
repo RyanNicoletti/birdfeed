@@ -17,14 +17,14 @@ pub struct Article {
 
 pub async fn post_articles(db_pool: &Pool<Sqlite>) -> Result<u64, Box<dyn std::error::Error>> {
     let sources: Vec<Source> = vec![
-        Source::RSS {
+        Source::Cidrap {
             url: "https://www.cidrap.umn.edu/news/49/rss".to_string(),
         },
         Source::PoultryWorld {
             url: "https://www.poultryworld.net/".to_string(),
         },
         Source::WattAgNet {
-            url: "https://www.wattagnet.com/broilers-turkeys/diseases-health".to_string(),
+            url: "https://www.wattagnet.com/__rss/website-scheduled-content.xml?input={%22sectionAlias%22%3A%22broilers-turkeys%2Fdiseases-health%22}".to_string(),
         },
     ];
     let mut all_articles: Vec<Article> = Vec::new();

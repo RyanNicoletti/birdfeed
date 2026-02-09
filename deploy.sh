@@ -16,7 +16,6 @@ cargo build --release --target aarch64-unknown-linux-gnu
 echo "Copying binary to Pi..."
 scp -P $PI_PORT target/aarch64-unknown-linux-gnu/release/birdfeed $PI_USER@$PI_HOST:$APP_DIR/
 
-rsync -avz -e "ssh -p $PI_PORT" --exclude 'target' --exclude '.git' assets/ $PI_USER@$PI_HOST:$APP_DIR/assets/
 rsync -avz -e "ssh -p $PI_PORT" --exclude 'target' --exclude '.git' migrations/ $PI_USER@$PI_HOST:$APP_DIR/migrations/
 
 scp -P $PI_PORT .env.production $PI_USER@$PI_HOST:$APP_DIR/.env
