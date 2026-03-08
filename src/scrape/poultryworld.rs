@@ -9,9 +9,11 @@ pub async fn fetch(url: &str) -> Result<Vec<Article>, Box<dyn std::error::Error>
 
     let items: Vec<(String, String, String)> = {
         let document = Html::parse_document(&html);
-        let text_grid_selector = Selector::parse(".text-grid").unwrap();
-        let h3_link_selector = Selector::parse("h3 a").unwrap();
-        let time_selector = Selector::parse(".meta-t .time").unwrap();
+        let text_grid_selector =
+            Selector::parse(".text-grid").expect("invalid selector: .text-grid");
+        let h3_link_selector = Selector::parse("h3 a").expect("invalid selector: h3 a");
+        let time_selector =
+            Selector::parse(".meta-t .time").expect("invalid selector: .meta-t .time");
 
         document
             .select(&text_grid_selector)
