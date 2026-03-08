@@ -66,7 +66,7 @@ async fn main() -> std::io::Result<()> {
         .expect("Unexpected error adding a new scheduled job");
     scheduler
         .add(
-            Job::new_async("0, 0, 0, 0, *, 1", move |_uuid, _l| {
+            Job::new_async("0 0 8 * * 2", move |_uuid, _l| {
                 let db_pool = pool_for_summarizer.clone();
                 Box::pin(async move {
                     let summarize_result: Result<(), Box<dyn Error>> = async {
