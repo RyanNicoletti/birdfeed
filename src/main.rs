@@ -1,11 +1,16 @@
 mod article;
 mod db;
+mod llm;
 mod scrape;
 mod source;
+use crate::db::{get_articles_for_summary, insert_summary};
 use actix_web::{App, HttpResponse, HttpServer, get, web};
 use askama::Template;
 use std::env;
+use std::error::Error;
 use tokio_cron_scheduler::{Job, JobScheduler};
+
+use crate::llm::summarize_articles;
 
 struct AppState {
     db_pool: sqlx::SqlitePool,
@@ -39,6 +44,7 @@ async fn main() -> std::io::Result<()> {
         .await
         .expect("Error creating the database");
     let pool_for_cron = db_pool.clone();
+    let pool_for_summarizer = db_pool.clone();
     let pool = web::Data::new(AppState { db_pool });
 
     let scheduler = JobScheduler::new().await.expect("");
@@ -54,10 +60,32 @@ async fn main() -> std::io::Result<()> {
                     }
                 })
             })
-            .expect("Unexpected error scheduling new async cron job."),
+            .expect("Unexpected error scheduling post articles cron."),
         )
         .await
         .expect("Unexpected error adding a new scheduled job");
+    scheduler
+        .add(
+            Job::new_async("0, 0, 0, 0, *, 1", move |_uuid, _l| {
+                let db_pool = pool_for_summarizer.clone();
+                Box::pin(async move {
+                    let summarize_result: Result<(), Box<dyn Error>> = async {
+                        let articles = get_articles_for_summary(&db_pool).await?;
+                        let summary = summarize_articles(&articles).await?;
+                        insert_summary(summary, &db_pool).await?;
+                        Ok(())
+                    }
+                    .await;
+                    match summarize_result {
+                        Ok(()) => println!("Inserted new weekly summary into db"),
+                        Err(e) => eprintln!("Failed to insert new summary into db: {}", e),
+                    }
+                })
+            })
+            .expect("Unexpected error scheduling the summarizer cron"),
+        )
+        .await
+        .expect("Unexpected error adding the summarizer cron");
 
     scheduler
         .start()

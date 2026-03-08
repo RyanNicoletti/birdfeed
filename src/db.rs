@@ -1,4 +1,4 @@
-use crate::article;
+use crate::article::{self, Article};
 use chrono::{Duration, Local};
 use sqlx::SqlitePool;
 use sqlx::migrate::MigrateDatabase;
@@ -22,14 +22,15 @@ pub async fn insert_posts(
     for a in articles {
         let inserted = sqlx::query!(
             r#"
-            INSERT INTO articles (title, link, summary, date_pub, source, fetched_at)
+            INSERT INTO articles (title, link, summary, body, date_pub, source, fetched_at)
             VALUES
-            (?1, ?2, ?3, ?4, ?5, ?6)
+            (?1, ?2, ?3, ?4, ?5, ?6, ?7)
             ON CONFLICT(title) DO NOTHING
             "#,
             a.title,
             a.link,
             a.summary,
+            a.body,
             a.date_pub,
             a.source,
             ts
@@ -40,6 +41,27 @@ pub async fn insert_posts(
         insert_count = inserted + insert_count;
     }
     Ok(insert_count)
+}
+
+pub async fn insert_summary(summary: String, db_pool: &SqlitePool) -> Result<(), sqlx::Error> {
+    let mut conn = db_pool.acquire().await?;
+    let now = Local::now();
+    let end = now.format("%Y-%m-%d").to_string();
+    let start = (now - Duration::days(7)).format("%Y-%m-%d").to_string();
+    let date_range = format!("{} to {}", start, end);
+
+    sqlx::query!(
+        r#"
+    INSERT INTO summaries (summary, date_range)
+    VALUES (?1, ?2)
+    ON CONFLICT(date_range) DO NOTHING
+    "#,
+        summary,
+        date_range
+    )
+    .execute(&mut *conn)
+    .await?;
+    Ok(())
 }
 
 /// date + articles published on that date
@@ -59,7 +81,7 @@ pub async fn get_articles_by_pub_date(
     let articles = sqlx::query_as!(
         article::Article,
         r#"
-        SELECT title, link, summary, date_pub, source, fetched_at
+        SELECT title, link, summary, body, date_pub, source, fetched_at
         FROM articles
         WHERE date_pub >= ?
         ORDER BY date_pub DESC
@@ -85,4 +107,25 @@ pub async fn get_articles_by_pub_date(
     dates.sort_by(|a, b| b.date.cmp(&a.date));
 
     Ok(dates)
+}
+
+pub async fn get_articles_for_summary(db_pool: &SqlitePool) -> Result<Vec<Article>, sqlx::Error> {
+    let cutoff = (Local::now() - Duration::days(7))
+        .format("%Y-%m-%d")
+        .to_string();
+
+    let articles = sqlx::query_as!(
+        article::Article,
+        r#"
+        SELECT title, link, summary, body, date_pub, source, fetched_at
+        FROM articles
+        WHERE date_pub >= ?
+        ORDER BY date_pub DESC
+        "#,
+        cutoff
+    )
+    .fetch_all(db_pool)
+    .await?;
+    let articles: Vec<article::Article> = articles.into_iter().collect();
+    Ok(articles)
 }

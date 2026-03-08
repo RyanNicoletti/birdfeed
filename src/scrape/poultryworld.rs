@@ -1,44 +1,52 @@
 use crate::article::Article;
+use crate::scrape::fetch_article_body;
 use chrono::Utc;
 use scraper::{Html, Selector};
 
 pub async fn fetch(url: &str) -> Result<Vec<Article>, Box<dyn std::error::Error>> {
     let html = reqwest::get(url).await?.text().await?;
-    let document = Html::parse_document(&html);
+    let current_year = Utc::now().format("%Y").to_string();
+
+    let items: Vec<(String, String, String)> = {
+        let document = Html::parse_document(&html);
+        let text_grid_selector = Selector::parse(".text-grid").unwrap();
+        let h3_link_selector = Selector::parse("h3 a").unwrap();
+        let time_selector = Selector::parse(".meta-t .time").unwrap();
+
+        document
+            .select(&text_grid_selector)
+            .filter_map(|element| {
+                let link_el = element.select(&h3_link_selector).next()?;
+                let link = link_el.value().attr("href").unwrap_or("").to_string();
+                let title = link_el.text().collect::<String>().trim().to_string();
+                let raw_date = element
+                    .select(&time_selector)
+                    .next()
+                    .map(|el| el.text().collect::<String>().trim().to_string())
+                    .unwrap_or_default();
+                if title.is_empty() || link.is_empty() {
+                    None
+                } else {
+                    Some((title, link, raw_date))
+                }
+            })
+            .collect()
+    };
 
     let mut articles: Vec<Article> = Vec::new();
 
-    let text_grid_selector = Selector::parse(".text-grid").unwrap();
-    let h3_link_selector = Selector::parse("h3 a").unwrap();
-    let time_selector = Selector::parse(".meta-t .time").unwrap();
-
-    let current_year = Utc::now().format("%Y").to_string();
-
-    for element in document.select(&text_grid_selector) {
-        let link_element = element.select(&h3_link_selector).next();
-
-        if let Some(link_el) = link_element {
-            let link = link_el.value().attr("href").unwrap_or("").to_string();
-            let title = link_el.text().collect::<String>().trim().to_string();
-            let raw_date = element
-                .select(&time_selector)
-                .next()
-                .map(|el| el.text().collect::<String>().trim().to_string())
-                .unwrap_or_default();
-
-            let date_pub = normalize_date(&raw_date, &current_year);
-
-            if !title.is_empty() && !link.is_empty() {
-                articles.push(Article {
-                    title,
-                    link,
-                    summary: String::new(),
-                    date_pub,
-                    source: url.to_owned(),
-                    fetched_at: chrono::offset::Local::now().to_rfc3339(),
-                });
-            }
-        }
+    for (title, link, raw_date) in items {
+        let date_pub = normalize_date(&raw_date, &current_year);
+        let article_body = fetch_article_body(link.as_str()).await.unwrap_or_default();
+        articles.push(Article {
+            title,
+            link,
+            summary: String::new(),
+            body: Some(article_body),
+            date_pub,
+            source: url.to_owned(),
+            fetched_at: chrono::offset::Local::now().to_rfc3339(),
+        });
     }
 
     Ok(articles)

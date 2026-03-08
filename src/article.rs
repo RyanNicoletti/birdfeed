@@ -10,6 +10,7 @@ pub struct Article {
     pub title: String,
     pub link: String,
     pub summary: String,
+    pub body: Option<String>,
     pub date_pub: String,
     pub source: String,
     pub fetched_at: String,
