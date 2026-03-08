@@ -129,3 +129,17 @@ pub async fn get_articles_for_summary(db_pool: &SqlitePool) -> Result<Vec<Articl
     let articles: Vec<article::Article> = articles.into_iter().collect();
     Ok(articles)
 }
+
+pub async fn get_latest_summary(db_pool: &SqlitePool) -> Result<String, sqlx::Error> {
+    let summary = sqlx::query_scalar!(
+        r#"
+        SELECT summary
+        FROM summaries
+        ORDER BY created_at DESC
+        LIMIT 1
+        "#
+    )
+    .fetch_one(db_pool)
+    .await?;
+    Ok(summary)
+}

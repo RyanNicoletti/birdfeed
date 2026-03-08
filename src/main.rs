@@ -20,6 +20,7 @@ struct AppState {
 #[template(path = "index.html")]
 struct IndexTemplate {
     dates: Vec<db::DateWithArticles>,
+    summary: String,
 }
 
 #[get("/")]
@@ -27,8 +28,10 @@ async fn index(data: web::Data<AppState>) -> HttpResponse {
     let dates = db::get_articles_by_pub_date(&data.db_pool)
         .await
         .unwrap_or_default();
-
-    let template = IndexTemplate { dates };
+    let summary = db::get_latest_summary(&data.db_pool)
+        .await
+        .unwrap_or_default();
+    let template = IndexTemplate { dates, summary };
 
     match template.render() {
         Ok(html) => HttpResponse::Ok().content_type("text/html").body(html),

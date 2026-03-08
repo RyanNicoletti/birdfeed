@@ -25,8 +25,14 @@
             Aggregated articles and news from around the web about avian
             influenza
         </p>
-
-        {% if dates.is_empty() %}
+        {% if !summary.is_empty() %}
+        <div class="weekly-summary">
+            <h2>
+                Summary of last week of articles (runs every Tuesday morning)
+            </h2>
+            <p>{{ summary }}</p>
+        </div>
+        {% endif %} {% if dates.is_empty() %}
         <p class="empty">No articles found in the past 2 weeks.</p>
         {% else %} {% for day in dates %}
         <details>
