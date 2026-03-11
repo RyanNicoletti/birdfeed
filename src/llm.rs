@@ -68,7 +68,9 @@ pub async fn summarize_articles(articles: &[Article]) -> Result<String, Box<dyn 
     let body = response.text().await?;
 
     if !status.is_success() {
-        return Err(format!("Anthropic API error ({}): {}", status, body).into());
+        // get 200 chars, just want to see enough to see the error message
+        let truncated_err: String = body.chars().take(200).collect();
+        return Err(format!("Anthropic API error {}: {}...", status, truncated_err).into());
     }
 
     let parsed: AnthropicResponse = serde_json::from_str(&body)

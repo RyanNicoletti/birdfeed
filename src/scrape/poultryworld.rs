@@ -1,5 +1,5 @@
-use crate::article::Article;
 use crate::scrape::fetch_article_body;
+use crate::{article::Article, scrape};
 use chrono::Utc;
 use scraper::{Html, Selector};
 
@@ -26,7 +26,7 @@ pub async fn fetch(url: &str) -> Result<Vec<Article>, Box<dyn std::error::Error>
                     .next()
                     .map(|el| el.text().collect::<String>().trim().to_string())
                     .unwrap_or_default();
-                if title.is_empty() || link.is_empty() {
+                if title.is_empty() || link.is_empty() || !scrape::is_safe_url(&link) {
                     None
                 } else {
                     Some((title, link, raw_date))

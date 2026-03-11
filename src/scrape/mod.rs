@@ -9,6 +9,7 @@ use reqwest;
 use rss::Channel;
 use scraper::{Html, Selector};
 use std::error::Error;
+use url::Url;
 
 pub async fn fetch_rss(url: &str) -> Result<Vec<Article>, Box<dyn std::error::Error>> {
     let body = reqwest::get(url).await?.bytes().await?;
@@ -17,6 +18,10 @@ pub async fn fetch_rss(url: &str) -> Result<Vec<Article>, Box<dyn std::error::Er
     let mut articles: Vec<Article> = Vec::new();
 
     for item in channel.items() {
+        let link = match item.link() {
+            Some(l) if is_safe_url(l) => l,
+            _ => continue,
+        };
         let raw_date = item.pub_date().unwrap_or("");
         let date_pub = normalize_rss_date(raw_date);
         if date_pub != today {
@@ -27,7 +32,7 @@ pub async fn fetch_rss(url: &str) -> Result<Vec<Article>, Box<dyn std::error::Er
             .unwrap_or_default();
         articles.push(Article {
             title: item.title().unwrap_or("No title found").to_string(),
-            link: item.link().unwrap_or("No link found").to_string(),
+            link: link.to_string(),
             summary: item.description().unwrap_or("No summary found").to_string(),
             body: Some(article_body),
             date_pub,
@@ -56,4 +61,11 @@ async fn fetch_article_body(url: &str) -> Result<String, Box<dyn Error>> {
         .collect::<Vec<String>>()
         .join("\n");
     Ok(body_text)
+}
+
+pub fn is_safe_url(url: &str) -> bool {
+    match Url::parse(url) {
+        Ok(parsed) => matches!(parsed.scheme(), "http" | "https"),
+        Err(_) => false,
+    }
 }

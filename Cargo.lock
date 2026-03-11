@@ -377,6 +377,7 @@ dependencies = [
  "sqlx",
  "tokio",
  "tokio-cron-scheduler",
+ "url",
 ]
 
 [[package]]
