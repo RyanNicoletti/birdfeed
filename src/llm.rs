@@ -5,59 +5,74 @@ use std::error::Error;
 use std::time::Duration;
 
 #[derive(Serialize)]
-struct GeminiRequest {
-    contents: Vec<Content>,
+struct AnthropicRequest {
+    model: String,
+    max_tokens: u32,
+    messages: Vec<Message>,
 }
 
-#[derive(Serialize, Deserialize)]
-struct Content {
-    parts: Vec<Part>,
+#[derive(Serialize)]
+struct Message {
+    role: String,
+    content: String,
 }
 
-#[derive(Serialize, Deserialize)]
-struct Part {
+#[derive(Deserialize)]
+struct AnthropicResponse {
+    content: Vec<ContentBlock>,
+}
+
+#[derive(Deserialize)]
+struct ContentBlock {
     text: String,
 }
 
-#[derive(Deserialize)]
-struct GeminiResponse {
-    candidates: Vec<Candidate>,
-}
-
-#[derive(Deserialize)]
-struct Candidate {
-    content: Content,
-}
-
 pub async fn summarize_articles(articles: &[Article]) -> Result<String, Box<dyn Error>> {
-    let gemini_api_key =
-        env::var("GEMINI_API_KEY").map_err(|_| "Gemini key not found in env vars".to_string())?;
-    let model = "gemini-3.0-flash";
+    let api_key = env::var("ANTHROPIC_API_KEY")
+        .map_err(|_| "ANTHROPIC_API_KEY not found in env vars".to_string())?;
+
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(30))
-        .build()
-        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
-    let gemini_url = format!(
-        "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}",
-        model, gemini_api_key
-    );
+        .build()?;
+
     let formatted_articles = articles
         .iter()
         .filter_map(|item| item.body.as_deref())
         .collect::<Vec<&str>>()
         .join("\n");
+
     let prompt = format!(
-        "Write a brief summary of these articles: \n{}",
+        "Summarize these articles for a weekly news letter about bird flu:\n{}",
         formatted_articles
     );
-    let request_body = GeminiRequest {
-        contents: vec![Content {
-            parts: vec![Part { text: prompt }],
+
+    let request_body = AnthropicRequest {
+        model: "claude-sonnet-4-6".to_string(),
+        max_tokens: 1024,
+        messages: vec![Message {
+            role: "user".to_string(),
+            content: prompt,
         }],
     };
-    let response = client.post(&gemini_url).json(&request_body).send().await?;
-    let parsed_response: GeminiResponse = response.json().await?;
-    Ok(parsed_response.candidates[0].content.parts[0]
-        .text
-        .to_string())
+
+    let response = client
+        .post("https://api.anthropic.com/v1/messages")
+        .header("x-api-key", &api_key)
+        .header("anthropic-version", "2023-06-01")
+        .header("content-type", "application/json")
+        .json(&request_body)
+        .send()
+        .await?;
+
+    let status = response.status();
+    let body = response.text().await?;
+
+    if !status.is_success() {
+        return Err(format!("Anthropic API error ({}): {}", status, body).into());
+    }
+
+    let parsed: AnthropicResponse = serde_json::from_str(&body)
+        .map_err(|e| format!("Failed to parse Anthropic response: {}\nBody: {}", e, body))?;
+
+    Ok(parsed.content[0].text.clone())
 }

@@ -1,6 +1,7 @@
 use crate::article::Article;
 use crate::scrape;
 
+#[derive(Debug)]
 pub enum Source {
     Cidrap { url: String },
     PoultryWorld { url: String },

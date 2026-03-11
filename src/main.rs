@@ -7,7 +7,6 @@ use crate::db::{get_articles_for_summary, insert_summary};
 use actix_web::{App, HttpResponse, HttpServer, get, web};
 use askama::Template;
 use std::env;
-use std::error::Error;
 use tokio_cron_scheduler::{Job, JobScheduler};
 
 use crate::llm::summarize_articles;
@@ -69,19 +68,27 @@ async fn main() -> std::io::Result<()> {
         .expect("Unexpected error adding a new scheduled job");
     scheduler
         .add(
-            Job::new_async("0 0 8 * * 2", move |_uuid, _l| {
+            Job::new_async("0 0 13 * * 2", move |_uuid, _l| {
+                println!("got here wooo");
                 let db_pool = pool_for_summarizer.clone();
                 Box::pin(async move {
-                    let summarize_result: Result<(), Box<dyn Error>> = async {
-                        let articles = get_articles_for_summary(&db_pool).await?;
-                        let summary = summarize_articles(&articles).await?;
-                        insert_summary(summary, &db_pool).await?;
-                        Ok(())
-                    }
-                    .await;
-                    match summarize_result {
-                        Ok(()) => println!("Inserted new weekly summary into db"),
-                        Err(e) => eprintln!("Failed to insert new summary into db: {}", e),
+                    let articles = match get_articles_for_summary(&db_pool).await {
+                        Ok(a) => a,
+                        Err(e) => {
+                            eprintln!("Failed to fetch articles for summary: {}", e);
+                            return;
+                        }
+                    };
+                    let summary = match summarize_articles(&articles).await {
+                        Ok(s) => s,
+                        Err(e) => {
+                            eprintln!("Failed to summarize articles: {}", e);
+                            return;
+                        }
+                    };
+                    if let Err(e) = insert_summary(summary, &db_pool).await {
+                        eprintln!("Failed to insert article summary into db: {}", e);
+                        return;
                     }
                 })
             })
