@@ -375,6 +375,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sqlx",
+ "thiserror",
  "tokio",
  "tokio-cron-scheduler",
  "url",

@@ -1,9 +1,10 @@
 use crate::article::{self, Article};
+use crate::error::AppError;
 use chrono::{Duration, Local};
 use sqlx::SqlitePool;
 use sqlx::migrate::MigrateDatabase;
 
-pub async fn create_db(db_url: &str) -> Result<sqlx::SqlitePool, sqlx::Error> {
+pub async fn create_db(db_url: &str) -> Result<sqlx::SqlitePool, AppError> {
     if !sqlx::Sqlite::database_exists(db_url).await? {
         sqlx::Sqlite::create_database(db_url).await?;
     }
@@ -15,16 +16,16 @@ pub async fn create_db(db_url: &str) -> Result<sqlx::SqlitePool, sqlx::Error> {
 pub async fn insert_posts(
     articles: Vec<article::Article>,
     db_pool: &SqlitePool,
-) -> Result<u64, sqlx::Error> {
-    let mut conn = db_pool.acquire().await?;
+) -> Result<u64, AppError> {
+    let mut tx = db_pool.begin().await?;
     let ts = chrono::offset::Local::now().to_rfc3339();
     let mut insert_count: u64 = 0;
+
     for a in articles {
         let inserted = sqlx::query!(
             r#"
             INSERT INTO articles (title, link, summary, body, date_pub, source, fetched_at)
-            VALUES
-            (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
             ON CONFLICT(title) DO NOTHING
             "#,
             a.title,
@@ -35,15 +36,17 @@ pub async fn insert_posts(
             a.source,
             ts
         )
-        .execute(&mut *conn)
+        .execute(&mut *tx)
         .await?
         .rows_affected();
-        insert_count = inserted + insert_count;
+        insert_count += inserted;
     }
+
+    tx.commit().await?;
     Ok(insert_count)
 }
 
-pub async fn insert_summary(summary: String, db_pool: &SqlitePool) -> Result<(), sqlx::Error> {
+pub async fn insert_summary(summary: String, db_pool: &SqlitePool) -> Result<(), AppError> {
     let mut conn = db_pool.acquire().await?;
     let now = Local::now();
     let end = now.format("%Y-%m-%d").to_string();
@@ -52,10 +55,10 @@ pub async fn insert_summary(summary: String, db_pool: &SqlitePool) -> Result<(),
 
     sqlx::query!(
         r#"
-    INSERT INTO summaries (summary, date_range)
-    VALUES (?1, ?2)
-    ON CONFLICT(date_range) DO NOTHING
-    "#,
+        INSERT INTO summaries (summary, date_range)
+        VALUES (?1, ?2)
+        ON CONFLICT(date_range) DO NOTHING
+        "#,
         summary,
         date_range
     )
@@ -73,7 +76,7 @@ pub struct DateWithArticles {
 
 pub async fn get_articles_by_pub_date(
     db_pool: &SqlitePool,
-) -> Result<Vec<DateWithArticles>, sqlx::Error> {
+) -> Result<Vec<DateWithArticles>, AppError> {
     let cutoff = (Local::now() - Duration::days(14))
         .format("%Y-%m-%d")
         .to_string();
@@ -109,7 +112,7 @@ pub async fn get_articles_by_pub_date(
     Ok(dates)
 }
 
-pub async fn get_articles_for_summary(db_pool: &SqlitePool) -> Result<Vec<Article>, sqlx::Error> {
+pub async fn get_articles_for_summary(db_pool: &SqlitePool) -> Result<Vec<Article>, AppError> {
     let cutoff = (Local::now() - Duration::days(7))
         .format("%Y-%m-%d")
         .to_string();
@@ -126,11 +129,10 @@ pub async fn get_articles_for_summary(db_pool: &SqlitePool) -> Result<Vec<Articl
     )
     .fetch_all(db_pool)
     .await?;
-    let articles: Vec<article::Article> = articles.into_iter().collect();
     Ok(articles)
 }
 
-pub async fn get_latest_summary(db_pool: &SqlitePool) -> Result<String, sqlx::Error> {
+pub async fn get_latest_summary(db_pool: &SqlitePool) -> Result<Option<String>, AppError> {
     let summary = sqlx::query_scalar!(
         r#"
         SELECT summary
@@ -139,7 +141,7 @@ pub async fn get_latest_summary(db_pool: &SqlitePool) -> Result<String, sqlx::Er
         LIMIT 1
         "#
     )
-    .fetch_one(db_pool)
+    .fetch_optional(db_pool)
     .await?;
     Ok(summary)
 }

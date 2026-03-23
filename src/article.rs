@@ -1,4 +1,5 @@
 use crate::db;
+use crate::error::AppError;
 use crate::source::Source;
 use serde::Serialize;
 use sqlx::{Pool, Sqlite};
@@ -16,7 +17,7 @@ pub struct Article {
     pub fetched_at: String,
 }
 
-pub async fn post_articles(db_pool: &Pool<Sqlite>) -> Result<u64, Box<dyn std::error::Error>> {
+pub async fn post_articles(db_pool: &Pool<Sqlite>) -> Result<u64, AppError> {
     let sources: Vec<Source> = vec![
         Source::Cidrap {
             url: "https://www.cidrap.umn.edu/news/49/rss".to_string(),
@@ -44,8 +45,6 @@ pub async fn post_articles(db_pool: &Pool<Sqlite>) -> Result<u64, Box<dyn std::e
         .filter(|a| KEYWORDS.iter().any(|w| a.title.to_lowercase().contains(w)))
         .collect();
 
-    let num_inserted = db::insert_posts(filtered_articles, db_pool)
-        .await
-        .expect("Error inserting articles into db");
+    let num_inserted = db::insert_posts(filtered_articles, db_pool).await?;
     Ok(num_inserted)
 }

@@ -4,14 +4,13 @@ pub mod poultryworld;
 pub mod wattagnet;
 
 use crate::article::Article;
+use crate::error::AppError;
 use chrono::DateTime;
-use reqwest;
 use rss::Channel;
 use scraper::{Html, Selector};
-use std::error::Error;
 use url::Url;
 
-pub async fn fetch_rss(url: &str) -> Result<Vec<Article>, Box<dyn std::error::Error>> {
+pub async fn fetch_rss(url: &str) -> Result<Vec<Article>, AppError> {
     let body = reqwest::get(url).await?.bytes().await?;
     let channel = Channel::read_from(&body[..])?;
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
@@ -27,9 +26,15 @@ pub async fn fetch_rss(url: &str) -> Result<Vec<Article>, Box<dyn std::error::Er
         if date_pub != today {
             continue;
         }
-        let article_body: String = fetch_article_body(&item.link().unwrap_or(""))
-            .await
-            .unwrap_or_default();
+
+        let article_body = match fetch_article_body(link).await {
+            Ok(body) => body,
+            Err(e) => {
+                eprintln!("Failed to fetch body for {}: {}", link, e);
+                String::new()
+            }
+        };
+
         articles.push(Article {
             title: item.title().unwrap_or("No title found").to_string(),
             link: link.to_string(),
@@ -51,15 +56,19 @@ fn normalize_rss_date(raw_date: &str) -> String {
         .unwrap_or_else(|_| raw_date.to_string())
 }
 
-async fn fetch_article_body(url: &str) -> Result<String, Box<dyn Error>> {
+async fn fetch_article_body(url: &str) -> Result<String, AppError> {
     let html = reqwest::get(url).await?.text().await?;
     let document = Html::parse_document(&html);
-    let selector = Selector::parse("p").unwrap();
+
+    let selector = Selector::parse("p")
+        .map_err(|e| AppError::HtmlParse(format!("Invalid CSS selector 'p': {}", e)))?;
+
     let body_text: String = document
         .select(&selector)
         .map(|el| el.text().collect::<String>())
         .collect::<Vec<String>>()
         .join("\n");
+
     Ok(body_text)
 }
 

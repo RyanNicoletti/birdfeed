@@ -1,4 +1,5 @@
 use crate::article::Article;
+use crate::error::AppError;
 use crate::scrape;
 
 #[derive(Debug)]
@@ -10,7 +11,7 @@ pub enum Source {
 }
 
 impl Source {
-    pub async fn fetch_articles(&self) -> Result<Vec<Article>, Box<dyn std::error::Error>> {
+    pub async fn fetch_articles(&self) -> Result<Vec<Article>, AppError> {
         match self {
             Source::Cidrap { url } => scrape::cidrap::fetch(url).await,
             Source::PoultryWorld { url } => scrape::poultryworld::fetch(url).await,

@@ -2,16 +2,16 @@
 set -e
 
 if [ -f .env ]; then
-    source .env
+  source .env
 else
-    echo "Error: .env not found"
-    exit 1
+  echo "Error: .env not found"
+  exit 1
 fi
 
 ssh -p $PI_PORT $PI_USER@$PI_HOST "sudo systemctl stop birdfeed"
 
 echo "Building release binary..."
-cargo build --release --target aarch64-unknown-linux-gnu
+cross build --release --target aarch64-unknown-linux-gnu
 
 echo "Copying binary to Pi..."
 scp -P $PI_PORT target/aarch64-unknown-linux-gnu/release/birdfeed $PI_USER@$PI_HOST:$APP_DIR/

@@ -1,19 +1,22 @@
+use crate::error::AppError;
 use crate::scrape::fetch_article_body;
 use crate::{article::Article, scrape};
 use chrono::Utc;
 use scraper::{Html, Selector};
 
-pub async fn fetch(url: &str) -> Result<Vec<Article>, Box<dyn std::error::Error>> {
+pub async fn fetch(url: &str) -> Result<Vec<Article>, AppError> {
     let html = reqwest::get(url).await?.text().await?;
     let current_year = Utc::now().format("%Y").to_string();
 
     let items: Vec<(String, String, String)> = {
         let document = Html::parse_document(&html);
-        let text_grid_selector =
-            Selector::parse(".text-grid").expect("invalid selector: .text-grid");
-        let h3_link_selector = Selector::parse("h3 a").expect("invalid selector: h3 a");
-        let time_selector =
-            Selector::parse(".meta-t .time").expect("invalid selector: .meta-t .time");
+
+        let text_grid_selector = Selector::parse(".text-grid")
+            .map_err(|e| AppError::HtmlParse(format!("Invalid selector '.text-grid': {}", e)))?;
+        let h3_link_selector = Selector::parse("h3 a")
+            .map_err(|e| AppError::HtmlParse(format!("Invalid selector 'h3 a': {}", e)))?;
+        let time_selector = Selector::parse(".meta-t .time")
+            .map_err(|e| AppError::HtmlParse(format!("Invalid selector '.meta-t .time': {}", e)))?;
 
         document
             .select(&text_grid_selector)
@@ -39,7 +42,13 @@ pub async fn fetch(url: &str) -> Result<Vec<Article>, Box<dyn std::error::Error>
 
     for (title, link, raw_date) in items {
         let date_pub = normalize_date(&raw_date, &current_year);
-        let article_body = fetch_article_body(link.as_str()).await.unwrap_or_default();
+        let article_body = match fetch_article_body(link.as_str()).await {
+            Ok(body) => body,
+            Err(e) => {
+                eprintln!("Failed to fetch body for {}: {}", link, e);
+                String::new()
+            }
+        };
         articles.push(Article {
             title,
             link,

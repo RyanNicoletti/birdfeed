@@ -1,6 +1,7 @@
 use crate::article::Article;
 use crate::scrape;
+use crate::error::AppError;
 
-pub async fn fetch(url: &str) -> Result<Vec<Article>, Box<dyn std::error::Error>> {
+pub async fn fetch(url: &str) -> Result<Vec<Article>, AppError> {
     scrape::fetch_rss(url).await
 }

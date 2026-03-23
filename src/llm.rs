@@ -1,7 +1,7 @@
 use crate::article::Article;
+use crate::error::AppError;
 use serde::{Deserialize, Serialize};
 use std::env;
-use std::error::Error;
 use std::time::Duration;
 
 #[derive(Serialize)]
@@ -27,9 +27,9 @@ struct ContentBlock {
     text: String,
 }
 
-pub async fn summarize_articles(articles: &[Article]) -> Result<String, Box<dyn Error>> {
+pub async fn summarize_articles(articles: &[Article]) -> Result<String, AppError> {
     let api_key = env::var("ANTHROPIC_API_KEY")
-        .map_err(|_| "ANTHROPIC_API_KEY not found in env vars".to_string())?;
+        .map_err(|_| AppError::Config("ANTHROPIC_API_KEY not found in env vars".to_string()))?;
 
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(30))
@@ -42,7 +42,11 @@ pub async fn summarize_articles(articles: &[Article]) -> Result<String, Box<dyn 
         .join("\n");
 
     let prompt = format!(
-        "Summarize these articles for a weekly news letter about bird flu:\n{}",
+        "You are a writer for a college newsletter that covers avian influenza developments. \
+         Summarize the following articles into a concise weekly update. \
+         Do not use emojis. \
+         Write in a clear, informative tone appropriate for a university audience. \
+         Use short paragraphs.\n\n{}",
         formatted_articles
     );
 
@@ -70,11 +74,18 @@ pub async fn summarize_articles(articles: &[Article]) -> Result<String, Box<dyn 
     if !status.is_success() {
         // get 200 chars, just want to see enough to see the error message
         let truncated_err: String = body.chars().take(200).collect();
-        return Err(format!("Anthropic API error {}: {}...", status, truncated_err).into());
+        return Err(AppError::LlmApi {
+            status: status.as_u16(),
+            body: truncated_err,
+        });
     }
 
-    let parsed: AnthropicResponse = serde_json::from_str(&body)
-        .map_err(|e| format!("Failed to parse Anthropic response: {}\nBody: {}", e, body))?;
-
-    Ok(parsed.content[0].text.clone())
+    let parsed: AnthropicResponse = serde_json::from_str(&body)?;
+    let text = parsed
+        .content
+        .first()
+        .ok_or(AppError::LlmEmptyResponse)?
+        .text
+        .clone();
+    Ok(text)
 }
