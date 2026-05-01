@@ -11,7 +11,6 @@ use rss::Channel;
 use scraper::{Html, Selector};
 use url::Url;
 
-/// Build a reqwest client with browser-like headers to avoid bot detection
 fn build_client() -> Result<reqwest::Client, reqwest::Error> {
     reqwest::Client::builder()
         .user_agent(
@@ -66,6 +65,72 @@ pub async fn fetch_rss(url: &str) -> Result<Vec<Article>, AppError> {
         let article_body: String = fetch_article_body(&item.link().unwrap_or(""))
             .await
             .unwrap_or_default();
+        articles.push(Article {
+            title: item.title().unwrap_or("No title found").to_string(),
+            link: link.to_string(),
+            summary: item.description().unwrap_or("No summary found").to_string(),
+            body: Some(article_body),
+            date_pub,
+            source: url.to_owned(),
+            fetched_at: chrono::offset::Local::now().to_rfc3339(),
+        });
+    }
+
+    Ok(articles)
+}
+
+pub async fn fetch_rss_curl(url: &str) -> Result<Vec<Article>, AppError> {
+    let output = tokio::process::Command::new("curl")
+        .args([
+            "-s",             // silent, no progress bar
+            "-f",             // fail fast on HTTP errors (returns exit code 22)
+            "-L",             // follow redirects
+            "--max-time", "15",
+            "-H", "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0",
+            "-H", "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "-H", "Accept-Language: en-US,en;q=0.9",
+            "--compressed",   // let curl handle gzip/br/deflate decoding
+            url,
+        ])
+        .output()
+        .await
+        .map_err(|e| AppError::Config(format!("Failed to run curl: {}", e)))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(AppError::Config(format!(
+            "curl failed for {} (exit {}): {}",
+            url,
+            output.status.code().unwrap_or(-1),
+            stderr.chars().take(200).collect::<String>()
+        )));
+    }
+
+    // curl --compressed already decodes gzip/br, so output.stdout is raw text.
+    // Try UTF-8 first; fall back to Latin-1 if the feed has stray non-UTF-8 bytes.
+    let body: Vec<u8> = match std::str::from_utf8(&output.stdout) {
+        Ok(_) => output.stdout,
+        Err(_) => {
+            let text: String = output.stdout.iter().map(|&b| b as char).collect();
+            text.into_bytes()
+        }
+    };
+
+    let channel = Channel::read_from(&body[..])?;
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    let mut articles: Vec<Article> = Vec::new();
+
+    for item in channel.items() {
+        let link = match item.link() {
+            Some(l) if is_safe_url(l) => l,
+            _ => continue,
+        };
+        let raw_date = item.pub_date().unwrap_or("");
+        let date_pub = normalize_rss_date(raw_date);
+        if date_pub != today {
+            continue;
+        }
+        let article_body: String = fetch_article_body(link).await.unwrap_or_default();
         articles.push(Article {
             title: item.title().unwrap_or("No title found").to_string(),
             link: link.to_string(),
