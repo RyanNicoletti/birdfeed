@@ -4,14 +4,52 @@ pub mod poultryworld;
 pub mod wattagnet;
 
 use crate::article::Article;
-use crate::error::AppError;
 use chrono::DateTime;
+use reqwest;
 use rss::Channel;
 use scraper::{Html, Selector};
+use std::error::Error;
 use url::Url;
 
-pub async fn fetch_rss(url: &str) -> Result<Vec<Article>, AppError> {
-    let body = reqwest::get(url).await?.bytes().await?;
+// try get past bot detection 
+fn build_client() -> Result<reqwest::Client, reqwest::Error> {
+    reqwest::Client::builder()
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0")
+        .default_headers({
+            let mut headers = reqwest::header::HeaderMap::new();
+            headers.insert(
+                reqwest::header::ACCEPT,
+                "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                    .parse()
+                    .unwrap(),
+            );
+            headers.insert(
+                reqwest::header::ACCEPT_LANGUAGE,
+                "en-US,en;q=0.9".parse().unwrap(),
+            );
+            headers.insert(
+                reqwest::header::ACCEPT_ENCODING,
+                "gzip, deflate, br".parse().unwrap(),
+            );
+            headers.insert(
+                reqwest::header::CONNECTION,
+                "keep-alive".parse().unwrap(),
+            );
+            headers
+        })
+        .build()
+}
+
+pub async fn fetch_rss(url: &str) -> Result<Vec<Article>, Box<dyn std::error::Error>> {
+    let client = build_client()?;
+    let response = client.get(url).send().await?;
+
+    let status = response.status();
+    if !status.is_success() {
+        return Err(format!("HTTP {} from {}", status, url).into());
+    }
+
+    let body = response.bytes().await?;
     let channel = Channel::read_from(&body[..])?;
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
     let mut articles: Vec<Article> = Vec::new();
@@ -26,15 +64,9 @@ pub async fn fetch_rss(url: &str) -> Result<Vec<Article>, AppError> {
         if date_pub != today {
             continue;
         }
-
-        let article_body = match fetch_article_body(link).await {
-            Ok(body) => body,
-            Err(e) => {
-                eprintln!("Failed to fetch body for {}: {}", link, e);
-                String::new()
-            }
-        };
-
+        let article_body: String = fetch_article_body(url, &item.link().unwrap_or(""))
+            .await
+            .unwrap_or_default();
         articles.push(Article {
             title: item.title().unwrap_or("No title found").to_string(),
             link: link.to_string(),
@@ -56,19 +88,16 @@ fn normalize_rss_date(raw_date: &str) -> String {
         .unwrap_or_else(|_| raw_date.to_string())
 }
 
-async fn fetch_article_body(url: &str) -> Result<String, AppError> {
-    let html = reqwest::get(url).await?.text().await?;
+async fn fetch_article_body(url: &str) -> Result<String, Box<dyn Error>> {
+    let client = build_client()?;
+    let html = client.get(url).send().await?.text().await?;
     let document = Html::parse_document(&html);
-
-    let selector = Selector::parse("p")
-        .map_err(|e| AppError::HtmlParse(format!("Invalid CSS selector 'p': {}", e)))?;
-
+    let selector = Selector::parse("p").unwrap();
     let body_text: String = document
         .select(&selector)
         .map(|el| el.text().collect::<String>())
         .collect::<Vec<String>>()
         .join("\n");
-
     Ok(body_text)
 }
 
