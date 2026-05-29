@@ -1,6 +1,16 @@
-/target
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Secrets / env
 .env
 .env.production
+
+# Database
 *.db
 *.db-shm
 *.db-wal

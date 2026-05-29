@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bird Feed — Avian Influenza Newsletter</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrap">
+        <h1>🐦 Bird Feed</h1>
+        <p class="subtitle">
+          An academic newsletter aggregating avian influenza news and research
+          from reputable sources.
+        </p>
+        <p class="stats">
+          {{ total }} article{{ '' if total == 1 else 's' }} from the past
+          {{ window }} days &middot; {{ source_count }} sources monitored daily
+        </p>
+      </div>
+    </header>
+
+    <main class="wrap">
+      {% if summary_text %}
+      <section class="summary-card">
+        <h2>Weekly Summary</h2>
+        {% if summary_range %}<p class="summary-range">{{ summary_range }}</p>{% endif %}
+        {% for para in summary_text.split('\n') %}{% if para.strip() %}
+        <p>{{ para }}</p>
+        {% endif %}{% endfor %}
+      </section>
+      {% endif %}
+
+      {% if not days %}
+      <p class="empty">No articles found in the past {{ window }} days.</p>
+      {% else %}
+      {% for date, articles in days %}
+      <section class="day">
+        <h2 class="day-heading">
+          {{ date }}
+          <span class="count">{{ articles|length }} article{{ '' if articles|length == 1 else 's' }}</span>
+        </h2>
+        <ul class="articles">
+          {% for a in articles %}
+          <li class="article">
+            <a class="article-title" href="{{ a.link }}" target="_blank" rel="noopener noreferrer">
+              {{ a.title }}
+            </a>
+            <span class="source-tag">{{ a.source }}</span>
+            {% if a.summary %}<p class="article-summary">{{ a.summary }}</p>{% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endfor %}
+      {% endif %}
+    </main>
+
+    <footer class="site-footer wrap">
+      <p>Bird Feed aggregates publicly available headlines and links back to the original sources.</p>
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,129 @@
+"""SQLite persistence for articles and weekly summaries (stdlib sqlite3)."""
+
+from __future__ import annotations
+
+import datetime as dt
+import sqlite3
+from contextlib import contextmanager
+from pathlib import Path
+
+from . import config
+from .models import Article
+
+_SCHEMA = """
+CREATE TABLE IF NOT EXISTS articles (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    title       TEXT NOT NULL UNIQUE,
+    link        TEXT NOT NULL UNIQUE,
+    summary     TEXT NOT NULL DEFAULT '',
+    body        TEXT,
+    date_pub    TEXT NOT NULL,
+    source      TEXT NOT NULL,
+    fetched_at  TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_articles_date_pub ON articles (date_pub);
+
+CREATE TABLE IF NOT EXISTS summaries (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    summary     TEXT NOT NULL,
+    date_range  TEXT NOT NULL UNIQUE,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+"""
+
+
+@contextmanager
+def _connect():
+    Path(config.DB_PATH).parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(config.DB_PATH, timeout=30)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL;")
+    try:
+        yield conn
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def init_db() -> None:
+    with _connect() as conn:
+        conn.executescript(_SCHEMA)
+
+
+def insert_articles(articles: list[Article]) -> int:
+    """Insert articles, ignoring rows that collide on title or link.
+
+    Returns the number of newly inserted rows.
+    """
+    if not articles:
+        return 0
+    inserted = 0
+    with _connect() as conn:
+        for a in articles:
+            cur = conn.execute(
+                """
+                INSERT OR IGNORE INTO articles
+                    (title, link, summary, body, date_pub, source, fetched_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (a.title, a.link, a.summary, a.body, a.date_pub, a.source, a.fetched_at),
+            )
+            inserted += cur.rowcount
+    return inserted
+
+
+def _row_to_article(row: sqlite3.Row) -> Article:
+    return Article(
+        title=row["title"],
+        link=row["link"],
+        summary=row["summary"],
+        body=row["body"],
+        date_pub=row["date_pub"],
+        source=row["source"],
+        fetched_at=row["fetched_at"],
+    )
+
+
+def _cutoff(days: int) -> str:
+    return (dt.date.today() - dt.timedelta(days=days)).isoformat()
+
+
+def articles_since(days: int) -> list[Article]:
+    with _connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT title, link, summary, body, date_pub, source, fetched_at
+            FROM articles
+            WHERE date_pub >= ?
+            ORDER BY date_pub DESC, source ASC
+            """,
+            (_cutoff(days),),
+        ).fetchall()
+    return [_row_to_article(r) for r in rows]
+
+
+def articles_grouped_by_date(days: int) -> list[tuple[str, list[Article]]]:
+    """Return [(date, [articles])] for the homepage, newest date first."""
+    grouped: dict[str, list[Article]] = {}
+    for art in articles_since(days):
+        day = art.date_pub[:10]
+        grouped.setdefault(day, []).append(art)
+    return sorted(grouped.items(), key=lambda kv: kv[0], reverse=True)
+
+
+def insert_summary(summary: str, date_range: str) -> None:
+    with _connect() as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO summaries (summary, date_range) VALUES (?, ?)",
+            (summary, date_range),
+        )
+
+
+def latest_summary() -> tuple[str, str] | None:
+    """Return (summary, date_range) of the most recent weekly summary, or None."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT summary, date_range FROM summaries ORDER BY created_at DESC LIMIT 1"
+        ).fetchone()
+    return (row["summary"], row["date_range"]) if row else None

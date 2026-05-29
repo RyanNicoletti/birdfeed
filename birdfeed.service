@@ -1,0 +1,16 @@
+[Unit]
+Description=Bird Feed - avian influenza news aggregator
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=byryan
+WorkingDirectory=/opt/birdfeed
+EnvironmentFile=-/opt/birdfeed/.env
+ExecStart=/opt/birdfeed/.venv/bin/birdfeed serve
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
