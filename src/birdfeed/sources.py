@@ -35,6 +35,32 @@ def _matches_keywords(title: str) -> bool:
     return any(kw in t for kw in config.KEYWORDS)
 
 
+# Digest/roundup headlines that bundle several unrelated stories and merely
+# mention bird flu in passing. Either an explicit digest label, or several
+# distinct headlines stitched together with semicolons.
+_ROUNDUP_MARKERS = (
+    "roundup",
+    "round-up",
+    "week in review",
+    "weekly recap",
+    "weekly vet report",
+    "morning update",
+    "morning medical update",
+    "morning rounds",
+    "news briefing",
+    "daily briefing",
+    "news in brief",
+    "what we're reading",
+)
+
+
+def _is_roundup(title: str) -> bool:
+    if title.count(";") >= 2:
+        return True
+    t = title.lower()
+    return any(marker in t for marker in _ROUNDUP_MARKERS)
+
+
 def _clean(text: str) -> str:
     return re.sub(r"\s+", " ", (text or "")).strip()
 
@@ -82,6 +108,10 @@ def scrape_source(source: config.Source) -> list[Article]:
             continue
 
         if not (source.pre_filtered or _matches_keywords(title)):
+            continue
+
+        if _is_roundup(title):
+            log.debug("%s: skipping roundup headline: %s", source.name, title)
             continue
 
         if source.kind == "googlenews":

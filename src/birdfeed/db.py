@@ -7,8 +7,13 @@ import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 
-from . import config
+from . import config, dedup
 from .models import Article
+
+# How far back to look when checking whether an incoming title is a near-repeat
+# of one we already stored. Re-titled duplicates always surface within a day or
+# two, so a short window keeps the comparison cheap.
+_DEDUP_WINDOW_DAYS = 21
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS articles (
@@ -52,15 +57,26 @@ def init_db() -> None:
 
 
 def insert_articles(articles: list[Article]) -> int:
-    """Insert articles, ignoring rows that collide on title or link.
+    """Insert articles, skipping exact and near-duplicate titles/links.
 
-    Returns the number of newly inserted rows.
+    Exact title/link collisions are rejected by the table's UNIQUE constraints;
+    re-titled near-duplicates (same story, lightly edited headline) are caught up
+    front by comparing against recently stored titles and titles earlier in this
+    batch. Returns the number of newly inserted rows.
     """
     if not articles:
         return 0
     inserted = 0
     with _connect() as conn:
+        recent = conn.execute(
+            "SELECT title FROM articles WHERE date_pub >= ?",
+            (_cutoff(_DEDUP_WINDOW_DAYS),),
+        ).fetchall()
+        seen = [dedup.prepare(r["title"]) for r in recent]
         for a in articles:
+            candidate = dedup.prepare(a.title)
+            if dedup.is_near_duplicate(candidate, seen):
+                continue
             cur = conn.execute(
                 """
                 INSERT OR IGNORE INTO articles
@@ -69,7 +85,9 @@ def insert_articles(articles: list[Article]) -> int:
                 """,
                 (a.title, a.link, a.summary, a.body, a.date_pub, a.source, a.fetched_at),
             )
-            inserted += cur.rowcount
+            if cur.rowcount:
+                inserted += 1
+                seen.append(candidate)
     return inserted
 
 

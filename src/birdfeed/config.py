@@ -77,17 +77,15 @@ class Source:
     pre_filtered: bool = False
 
 
-# Reputable sources. Direct RSS feeds give real links + full article bodies;
-# the Google News query adds mainstream wire coverage (AP, Reuters, local press).
+# Reputable sources. Direct RSS feeds give real links + full article bodies; the
+# Google News query carries the daily volume (mainstream wire + local press) that
+# the low-frequency specialist feeds can't. Google News items are quality-gated
+# downstream: roundup headlines are dropped at scrape time and re-titled
+# near-duplicates are collapsed at insert time.
 SOURCES: list[Source] = [
     Source(
         name="CIDRAP (Univ. of Minnesota)",
         url="https://www.cidrap.umn.edu/news/49/rss",
-        pre_filtered=True,
-    ),
-    Source(
-        name="ScienceDaily",
-        url="https://www.sciencedaily.com/rss/plants_animals/bird_flu.xml",
         pre_filtered=True,
     ),
     Source(
@@ -101,13 +99,15 @@ SOURCES: list[Source] = [
         pre_filtered=False,
     ),
     Source(
-        name="CDC Newsroom",
-        url="https://tools.cdc.gov/api/v2/resources/media/132036.rss",
+        name="WHO News",
+        url="https://www.who.int/rss-feeds/news-english.xml",
         pre_filtered=False,
     ),
     Source(
-        name="WHO News",
-        url="https://www.who.int/rss-feeds/news-english.xml",
+        # World Organisation for Animal Health — authoritative on HPAI as an
+        # animal-disease event. General feed, so keyword-filtered.
+        name="WOAH (World Org. for Animal Health)",
+        url="https://www.woah.org/en/feed/",
         pre_filtered=False,
     ),
     Source(
