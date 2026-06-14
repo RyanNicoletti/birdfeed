@@ -125,6 +125,7 @@ def _row_to_article(row: sqlite3.Row) -> Article:
         source=row["source"],
         fetched_at=row["fetched_at"],
         category=row["category"],
+        topic=config.topic_for_title(row["title"]),
     )
 
 

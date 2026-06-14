@@ -15,3 +15,6 @@ class Article:
     fetched_at: str  # ISO 8601
     body: str | None = None
     category: str = "bird_flu"
+    # Derived presentational tag (e.g. "bird flu", "measles"). Computed from the
+    # title on read; not stored in the DB.
+    topic: str = ""

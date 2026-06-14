@@ -68,34 +68,62 @@ BIRD_FLU_KEYWORDS: tuple[str, ...] = (
 # Title must contain one of these (case-insensitive) to count as another emerging
 # US viral / biodefense outbreak story. Kept specific enough to avoid generic junk
 # while covering the diseases and biosecurity terms the newsletter tracks.
-OTHER_KEYWORDS: tuple[str, ...] = (
-    "new world screwworm",
-    "screwworm",
-    "measles",
-    "mpox",
-    "monkeypox",
-    "ebola",
-    "marburg",
-    "nipah",
-    "lassa",
-    "dengue",
-    "west nile",
-    "eastern equine encephalitis",
-    "polio",
-    "poliovirus",
-    "cholera",
-    "anthrax",
-    "tularemia",
-    "plague",
-    "botulism",
-    "hantavirus",
-    "oropouche",
-    "chikungunya",
-    "zika",
-    "select agent",
-    "biosecurity",
-    "biodefense",
+# Ordered, most-specific-first mapping of a short human-readable topic tag to the
+# title keywords that imply it. Used to derive a presentational topic tag for each
+# article (see topic_for_title). Order matters: the first group with a matching
+# keyword wins, so list more specific terms before broader ones. The first group
+# reuses BIRD_FLU_KEYWORDS; the rest collectively define the OTHER category.
+TOPIC_GROUPS: list[tuple[str, tuple[str, ...]]] = [
+    ("bird flu", BIRD_FLU_KEYWORDS),
+    ("screwworm", ("new world screwworm", "screwworm")),
+    ("measles", ("measles",)),
+    ("mpox", ("mpox", "monkeypox")),
+    ("ebola", ("ebola", "marburg")),
+    ("nipah", ("nipah",)),
+    ("lassa", ("lassa",)),
+    ("dengue", ("dengue",)),
+    ("west nile", ("west nile",)),
+    ("eee", ("eastern equine encephalitis",)),
+    ("polio", ("polio", "poliovirus")),
+    ("cholera", ("cholera",)),
+    ("anthrax", ("anthrax",)),
+    ("tularemia", ("tularemia",)),
+    ("plague", ("plague",)),
+    ("botulism", ("botulism",)),
+    ("hantavirus", ("hantavirus",)),
+    ("oropouche", ("oropouche",)),
+    ("chikungunya", ("chikungunya",)),
+    ("zika", ("zika",)),
+    ("biodefense", ("select agent", "biosecurity", "biodefense")),
+]
+
+# Default tag for an on-topic article whose title matched a category but none of
+# the specific topic groups (kept for robustness; in practice every keyword above
+# belongs to a group).
+TOPIC_FALLBACK = "outbreak"
+
+# Title must contain one of these (case-insensitive) to count as another emerging
+# US viral / biodefense outbreak story. Kept specific enough to avoid generic junk
+# while covering the diseases and biosecurity terms the newsletter tracks. Derived
+# from the non-flu TOPIC_GROUPS so the keyword set and the tag set stay in sync.
+OTHER_KEYWORDS: tuple[str, ...] = tuple(
+    kw for label, kws in TOPIC_GROUPS if label != "bird flu" for kw in kws
 )
+
+
+def topic_for_title(title: str) -> str:
+    """Return a short, lowercase, human-readable topic tag for an article title.
+
+    Matches the title (case-insensitively) against TOPIC_GROUPS in order and
+    returns the label of the first group with a keyword appearing as a substring.
+    Falls back to TOPIC_FALLBACK when nothing matches. Derived purely from the
+    title, so it works for already-stored rows without a DB column.
+    """
+    t = title.lower()
+    for label, keywords in TOPIC_GROUPS:
+        if any(kw in t for kw in keywords):
+            return label
+    return TOPIC_FALLBACK
 
 
 @dataclass(frozen=True)

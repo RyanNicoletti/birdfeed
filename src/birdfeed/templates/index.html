@@ -8,17 +8,16 @@
   </head>
   <body>
     <header class="site-header">
-      <div class="wrap">
-        <h1>🐦 Bird Feed</h1>
-        <p class="subtitle">
-          An academic newsletter aggregating avian influenza and other emerging
-          US viral &amp; biodefense outbreak news from reputable sources.
-        </p>
-        <p class="stats">
-          {% set total = bird_flu_total + other_total %}
-          {{ total }} article{{ '' if total == 1 else 's' }} from the past
-          {{ window }} days &middot; {{ source_count }} sources monitored daily
-        </p>
+      <div class="wrap header-bar">
+        <span class="brand"><span class="logo" aria-hidden="true">🐦</span> Bird Feed</span>
+        <span class="tagline">
+          Avian influenza plus other emerging US viral &amp; biodefense outbreaks.
+        </span>
+        <span class="stats">
+          {{ total }} article{{ '' if total == 1 else 's' }} &middot;
+          past {{ window }} days &middot;
+          {{ source_count }} source{{ '' if source_count == 1 else 's' }}
+        </span>
       </div>
     </header>
 
@@ -40,54 +39,27 @@
       </details>
       {% endif %}
 
-      <nav class="section-nav" aria-label="Jump to section">
-        <a href="#bird-flu">Bird Flu <span class="nav-count">{{ bird_flu_total }}</span></a>
-        <a href="#other">Other Outbreaks &amp; Biodefense <span class="nav-count">{{ other_total }}</span></a>
-      </nav>
-
-      {% macro render_day(date, articles) %}
+      {% if not days %}
+      <p class="empty">No articles in the past {{ window }} days.</p>
+      {% else %}
+      {% for date, articles in days %}
       <section class="day">
-        <h3 class="day-heading">
+        <h2 class="day-heading">
           {{ date }}
           <span class="count">{{ articles|length }} article{{ '' if articles|length == 1 else 's' }}</span>
-        </h3>
+        </h2>
         <ul class="articles">
           {% for a in articles %}
           <li class="article">
-            <a class="article-title" href="{{ a.link }}" target="_blank" rel="noopener noreferrer">
-              {{ a.title }}
-            </a>
-            <span class="source-tag">{{ a.source }}</span>
-            {% if a.summary %}<p class="article-summary">{{ a.summary }}</p>{% endif %}
+            <span class="topic-tag">{{ a.topic }}</span>
+            <a class="article-title" href="{{ a.link }}" target="_blank" rel="noopener noreferrer">{{ a.title }}</a>
+            <span class="article-meta">{{ a.source }} &middot; {{ a.fetched_at[:10] }}</span>
           </li>
           {% endfor %}
         </ul>
       </section>
-      {% endmacro %}
-
-      <section id="bird-flu" class="feed-section">
-        <h2 class="section-heading">
-          Bird Flu
-          <span class="section-count">{{ bird_flu_total }} article{{ '' if bird_flu_total == 1 else 's' }}</span>
-        </h2>
-        {% if not bird_flu_days %}
-        <p class="empty">No articles in the past {{ window }} days.</p>
-        {% else %}
-        {% for date, articles in bird_flu_days %}{{ render_day(date, articles) }}{% endfor %}
-        {% endif %}
-      </section>
-
-      <section id="other" class="feed-section">
-        <h2 class="section-heading">
-          Other Outbreaks &amp; Biodefense
-          <span class="section-count">{{ other_total }} article{{ '' if other_total == 1 else 's' }}</span>
-        </h2>
-        {% if not other_days %}
-        <p class="empty">No articles in the past {{ window }} days.</p>
-        {% else %}
-        {% for date, articles in other_days %}{{ render_day(date, articles) }}{% endfor %}
-        {% endif %}
-      </section>
+      {% endfor %}
+      {% endif %}
     </main>
 
     <footer class="site-footer wrap">
