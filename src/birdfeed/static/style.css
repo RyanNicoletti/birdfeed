@@ -40,10 +40,9 @@ body {
 
 .header-bar {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.25rem 0.85rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
   padding-top: 0.7rem;
   padding-bottom: 0.7rem;
 }
@@ -83,7 +82,7 @@ body {
   background: var(--accent-soft);
   border: 1px solid #cfe0ff;
   border-radius: 12px;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 }
 
 /* The <summary> element is the clickable, collapsed-by-default header. */
@@ -92,7 +91,7 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1.25rem 1.75rem;
+  padding: 0.5rem 1rem;
   cursor: pointer;
   list-style: none; /* hide the default disclosure triangle */
 }
@@ -115,12 +114,12 @@ body {
 
 .summary-title {
   font-weight: 700;
-  font-size: 1.2rem;
+  font-size: 1rem;
   color: #0d3b66;
 }
 
 .summary-range {
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
@@ -141,7 +140,7 @@ body {
 }
 
 .summary-body {
-  padding: 0 1.75rem 1.5rem;
+  padding: 0 1rem 1.1rem;
 }
 
 .summary-body p {
@@ -201,25 +200,18 @@ body {
   text-decoration: underline;
 }
 
-/* Meta line: muted source · date on the left, highlighted tag on the right. */
+/* Meta line: muted "source · date · tag", same separator throughout. */
 .article-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
   margin-top: 0.15rem;
-}
-
-.article-source {
   font-size: 0.78rem;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
 
 /* Highlighted, filled badge naming the article's topic (bird flu, ...).
-   Right-aligned and visually louder than the muted source/date text. */
+   Sits inline right after the scraped date, louder than the muted meta text. */
 .topic-tag {
-  margin-left: auto;
+  display: inline-block;
   font-size: 0.68rem;
   font-weight: 700;
   text-transform: lowercase;
@@ -227,7 +219,7 @@ body {
   color: #ffffff;
   background: var(--accent);
   border-radius: 999px;
-  padding: 0.12rem 0.6rem;
+  padding: 0.05rem 0.5rem;
   white-space: nowrap;
 }
 

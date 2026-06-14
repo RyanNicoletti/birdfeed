@@ -54,10 +54,7 @@
           {% for a in articles %}
           <li class="article">
             <a class="article-title" href="{{ a.link }}" target="_blank" rel="noopener noreferrer">{{ a.title }}</a>
-            <span class="article-meta">
-              <span class="article-source">{{ a.source }} &middot; {{ a.fetched_at[:10] }}</span>
-              <span class="topic-tag">{{ a.topic }}</span>
-            </span>
+            <span class="article-meta">{{ a.source }} &middot; {{ a.fetched_at[:10] }} &middot; <span class="topic-tag">{{ a.topic }}</span></span>
           </li>
           {% endfor %}
         </ul>
