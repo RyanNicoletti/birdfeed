@@ -30,9 +30,18 @@ def _entry_date(entry) -> str | None:
     return None
 
 
-def _matches_keywords(title: str) -> bool:
+def _classify(title: str) -> str | None:
+    """Return the category for a title, or None if it matches neither keyword set.
+
+    Bird-flu keywords win over the other set: an item that mentions both is
+    treated as a bird-flu story.
+    """
     t = title.lower()
-    return any(kw in t for kw in config.KEYWORDS)
+    if any(kw in t for kw in config.BIRD_FLU_KEYWORDS):
+        return config.CATEGORY_BIRD_FLU
+    if any(kw in t for kw in config.OTHER_KEYWORDS):
+        return config.CATEGORY_OTHER
+    return None
 
 
 # Digest/roundup headlines that bundle several unrelated stories and merely
@@ -107,7 +116,15 @@ def scrape_source(source: config.Source) -> list[Article]:
         if date_pub != today:
             continue
 
-        if not (source.pre_filtered or _matches_keywords(title)):
+        category = _classify(title)
+        if source.pre_filtered:
+            # Pre-filtered feeds (e.g. CIDRAP) are already on-topic; keep every
+            # item. Route clear OTHER matches accordingly and default the rest to
+            # bird flu, since CIDRAP is a flu-leaning feed.
+            if category is None:
+                category = config.CATEGORY_BIRD_FLU
+        elif category is None:
+            # General feeds: keep only items matching one of the two keyword sets.
             continue
 
         if _is_roundup(title):
@@ -136,6 +153,7 @@ def scrape_source(source: config.Source) -> list[Article]:
                 source=src_name,
                 fetched_at=fetched_at,
                 body=body or None,
+                category=category,
             )
         )
 

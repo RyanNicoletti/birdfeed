@@ -11,13 +11,15 @@ log = logging.getLogger("birdfeed.llm")
 
 _SYSTEM_PROMPT = (
     "You are a writer for a university newsletter that covers avian influenza "
-    "(bird flu) developments for an academic audience. Summarize the supplied "
-    "articles into a single concise weekly update. Lead with the most "
-    "significant developments (new human or mammal cases, major outbreaks, "
-    "policy or vaccine news). Group related items. Write in clear, informative "
-    "prose with short paragraphs. Do not use emojis, markdown headers, or bullet "
-    "lists. If the articles conflict or are sparse, say so plainly rather than "
-    "inventing detail."
+    "(bird flu) and other emerging US viral and biodefense outbreaks (such as "
+    "the New World screwworm, measles, mpox, Ebola, Marburg, Nipah, and similar "
+    "threats) for an academic audience. Summarize the supplied articles into a "
+    "single concise weekly update. Lead with the most significant developments "
+    "(new human or mammal cases, major outbreaks, policy or vaccine news). Group "
+    "related items, and keep avian influenza developments distinct from the other "
+    "outbreaks. Write in clear, informative prose with short paragraphs. Do not "
+    "use emojis, markdown headers, or bullet lists. If the articles conflict or "
+    "are sparse, say so plainly rather than inventing detail."
 )
 
 
@@ -63,8 +65,9 @@ def generate_summary() -> str:
             {
                 "role": "user",
                 "content": (
-                    "Here are this week's avian influenza articles. Write the "
-                    "weekly update.\n\n" + corpus
+                    "Here are this week's articles on avian influenza and other "
+                    "emerging US viral and biodefense outbreaks. Write the weekly "
+                    "update.\n\n" + corpus
                 ),
             }
         ],

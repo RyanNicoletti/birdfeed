@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Bird Feed — Avian Influenza Newsletter</title>
+    <title>Bird Feed — Avian Influenza &amp; Outbreak Newsletter</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   </head>
   <body>
@@ -11,10 +11,11 @@
       <div class="wrap">
         <h1>🐦 Bird Feed</h1>
         <p class="subtitle">
-          An academic newsletter aggregating avian influenza news and research
-          from reputable sources.
+          An academic newsletter aggregating avian influenza and other emerging
+          US viral &amp; biodefense outbreak news from reputable sources.
         </p>
         <p class="stats">
+          {% set total = bird_flu_total + other_total %}
           {{ total }} article{{ '' if total == 1 else 's' }} from the past
           {{ window }} days &middot; {{ source_count }} sources monitored daily
         </p>
@@ -23,24 +24,33 @@
 
     <main class="wrap">
       {% if summary_text %}
-      <section class="summary-card">
-        <h2>Weekly Summary</h2>
-        {% if summary_range %}<p class="summary-range">{{ summary_range }}</p>{% endif %}
-        {% for para in summary_text.split('\n') %}{% if para.strip() %}
-        <p>{{ para }}</p>
-        {% endif %}{% endfor %}
-      </section>
+      <details class="summary-card">
+        <summary class="summary-head">
+          <span class="summary-head-text">
+            <span class="summary-title">Weekly Summary</span>
+            {% if summary_range %}<span class="summary-range">{{ summary_range }}</span>{% endif %}
+          </span>
+          <span class="chevron" aria-hidden="true"></span>
+        </summary>
+        <div class="summary-body">
+          {% for para in summary_text.split('\n') %}{% if para.strip() %}
+          <p>{{ para }}</p>
+          {% endif %}{% endfor %}
+        </div>
+      </details>
       {% endif %}
 
-      {% if not days %}
-      <p class="empty">No articles found in the past {{ window }} days.</p>
-      {% else %}
-      {% for date, articles in days %}
+      <nav class="section-nav" aria-label="Jump to section">
+        <a href="#bird-flu">Bird Flu <span class="nav-count">{{ bird_flu_total }}</span></a>
+        <a href="#other">Other Outbreaks &amp; Biodefense <span class="nav-count">{{ other_total }}</span></a>
+      </nav>
+
+      {% macro render_day(date, articles) %}
       <section class="day">
-        <h2 class="day-heading">
+        <h3 class="day-heading">
           {{ date }}
           <span class="count">{{ articles|length }} article{{ '' if articles|length == 1 else 's' }}</span>
-        </h2>
+        </h3>
         <ul class="articles">
           {% for a in articles %}
           <li class="article">
@@ -53,8 +63,31 @@
           {% endfor %}
         </ul>
       </section>
-      {% endfor %}
-      {% endif %}
+      {% endmacro %}
+
+      <section id="bird-flu" class="feed-section">
+        <h2 class="section-heading">
+          Bird Flu
+          <span class="section-count">{{ bird_flu_total }} article{{ '' if bird_flu_total == 1 else 's' }}</span>
+        </h2>
+        {% if not bird_flu_days %}
+        <p class="empty">No articles in the past {{ window }} days.</p>
+        {% else %}
+        {% for date, articles in bird_flu_days %}{{ render_day(date, articles) }}{% endfor %}
+        {% endif %}
+      </section>
+
+      <section id="other" class="feed-section">
+        <h2 class="section-heading">
+          Other Outbreaks &amp; Biodefense
+          <span class="section-count">{{ other_total }} article{{ '' if other_total == 1 else 's' }}</span>
+        </h2>
+        {% if not other_days %}
+        <p class="empty">No articles in the past {{ window }} days.</p>
+        {% else %}
+        {% for date, articles in other_days %}{{ render_day(date, articles) }}{% endfor %}
+        {% endif %}
+      </section>
     </main>
 
     <footer class="site-footer wrap">

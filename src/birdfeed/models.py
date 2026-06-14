@@ -14,3 +14,4 @@ class Article:
     source: str
     fetched_at: str  # ISO 8601
     body: str | None = None
+    category: str = "bird_flu"

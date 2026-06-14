@@ -22,5 +22,10 @@ def run_scrape() -> int:
             log.exception("source %s raised: %s", source.name, exc)
 
     inserted = db.insert_articles(collected)
+
+    pruned = db.prune_articles(config.RETENTION_WINDOW_DAYS)
+    if pruned:
+        log.info("pruned %d article(s) older than %d days", pruned, config.RETENTION_WINDOW_DAYS)
+
     log.info("scrape complete: %d collected, %d new", len(collected), inserted)
     return inserted

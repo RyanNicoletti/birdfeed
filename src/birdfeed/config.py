@@ -39,13 +39,19 @@ HOST: str = os.getenv("BIRDFEED_HOST", "127.0.0.1")
 PORT: int = int(os.getenv("BIRDFEED_PORT", "8080"))
 
 # How many days of articles to show on the homepage.
-DISPLAY_WINDOW_DAYS: int = int(os.getenv("BIRDFEED_DISPLAY_DAYS", "14"))
+DISPLAY_WINDOW_DAYS: int = int(os.getenv("BIRDFEED_DISPLAY_DAYS", "7"))
 # How many days of articles to feed the weekly summary.
 SUMMARY_WINDOW_DAYS: int = int(os.getenv("BIRDFEED_SUMMARY_DAYS", "7"))
+# How many days of article records to retain; older rows are pruned each scrape.
+RETENTION_WINDOW_DAYS: int = int(os.getenv("BIRDFEED_RETENTION_DAYS", "7"))
+
+# Category identifiers persisted on each Article and used by the frontend.
+CATEGORY_BIRD_FLU = "bird_flu"
+CATEGORY_OTHER = "other"
 
 # Title must contain one of these (case-insensitive) to count as an avian-flu story.
 # Kept broad enough for mixed feeds (CDC/WHO/Google News) but flu-focused.
-KEYWORDS: tuple[str, ...] = (
+BIRD_FLU_KEYWORDS: tuple[str, ...] = (
     "avian influenza",
     "avian flu",
     "bird flu",
@@ -57,6 +63,38 @@ KEYWORDS: tuple[str, ...] = (
     "hpai",
     "highly pathogenic",
     "h5 ",
+)
+
+# Title must contain one of these (case-insensitive) to count as another emerging
+# US viral / biodefense outbreak story. Kept specific enough to avoid generic junk
+# while covering the diseases and biosecurity terms the newsletter tracks.
+OTHER_KEYWORDS: tuple[str, ...] = (
+    "new world screwworm",
+    "screwworm",
+    "measles",
+    "mpox",
+    "monkeypox",
+    "ebola",
+    "marburg",
+    "nipah",
+    "lassa",
+    "dengue",
+    "west nile",
+    "eastern equine encephalitis",
+    "polio",
+    "poliovirus",
+    "cholera",
+    "anthrax",
+    "tularemia",
+    "plague",
+    "botulism",
+    "hantavirus",
+    "oropouche",
+    "chikungunya",
+    "zika",
+    "select agent",
+    "biosecurity",
+    "biodefense",
 )
 
 
@@ -115,6 +153,20 @@ SOURCES: list[Source] = [
         url=(
             "https://news.google.com/rss/search?"
             "q=%22avian+influenza%22+OR+%22bird+flu%22+OR+H5N1+when:2d"
+            "&hl=en-US&gl=US&ceid=US:en"
+        ),
+        kind="googlenews",
+        pre_filtered=False,
+    ),
+    Source(
+        # Volume source for the other-outbreak category (screwworm, measles,
+        # mpox, Ebola, Nipah, ...). Keyword-classified downstream like the
+        # bird-flu Google News query.
+        name="Google News (other outbreaks)",
+        url=(
+            "https://news.google.com/rss/search?"
+            "q=%22New+World+screwworm%22+OR+screwworm+OR+measles+OR+mpox"
+            "+OR+Ebola+OR+Marburg+OR+Nipah+OR+poliovirus+when:2d"
             "&hl=en-US&gl=US&ceid=US:en"
         ),
         kind="googlenews",

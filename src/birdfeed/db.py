@@ -24,7 +24,8 @@ CREATE TABLE IF NOT EXISTS articles (
     body        TEXT,
     date_pub    TEXT NOT NULL,
     source      TEXT NOT NULL,
-    fetched_at  TEXT NOT NULL
+    fetched_at  TEXT NOT NULL,
+    category    TEXT NOT NULL DEFAULT 'bird_flu'
 );
 
 CREATE INDEX IF NOT EXISTS idx_articles_date_pub ON articles (date_pub);
@@ -54,6 +55,20 @@ def _connect():
 def init_db() -> None:
     with _connect() as conn:
         conn.executescript(_SCHEMA)
+        # Idempotent migration for production DBs created before the category
+        # column existed: add it (existing rows backfill to 'bird_flu' via the
+        # DEFAULT) and ensure the supporting index exists.
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(articles)")}
+        if "category" not in cols:
+            conn.execute(
+                "ALTER TABLE articles ADD COLUMN category TEXT NOT NULL DEFAULT 'bird_flu'"
+            )
+        # Create the category index here (not in _SCHEMA) so it is built only
+        # after the column is guaranteed to exist on migrated databases.
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_articles_category_date "
+            "ON articles (category, date_pub)"
+        )
 
 
 def insert_articles(articles: list[Article]) -> int:
@@ -80,10 +95,19 @@ def insert_articles(articles: list[Article]) -> int:
             cur = conn.execute(
                 """
                 INSERT OR IGNORE INTO articles
-                    (title, link, summary, body, date_pub, source, fetched_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                    (title, link, summary, body, date_pub, source, fetched_at, category)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (a.title, a.link, a.summary, a.body, a.date_pub, a.source, a.fetched_at),
+                (
+                    a.title,
+                    a.link,
+                    a.summary,
+                    a.body,
+                    a.date_pub,
+                    a.source,
+                    a.fetched_at,
+                    a.category,
+                ),
             )
             if cur.rowcount:
                 inserted += 1
@@ -100,6 +124,7 @@ def _row_to_article(row: sqlite3.Row) -> Article:
         date_pub=row["date_pub"],
         source=row["source"],
         fetched_at=row["fetched_at"],
+        category=row["category"],
     )
 
 
@@ -107,27 +132,45 @@ def _cutoff(days: int) -> str:
     return (dt.date.today() - dt.timedelta(days=days)).isoformat()
 
 
-def articles_since(days: int) -> list[Article]:
+def articles_since(days: int, category: str | None = None) -> list[Article]:
+    sql = (
+        "SELECT title, link, summary, body, date_pub, source, fetched_at, category "
+        "FROM articles WHERE date_pub >= ?"
+    )
+    params: list[str] = [_cutoff(days)]
+    if category is not None:
+        sql += " AND category = ?"
+        params.append(category)
+    sql += " ORDER BY date_pub DESC, source ASC"
     with _connect() as conn:
-        rows = conn.execute(
-            """
-            SELECT title, link, summary, body, date_pub, source, fetched_at
-            FROM articles
-            WHERE date_pub >= ?
-            ORDER BY date_pub DESC, source ASC
-            """,
-            (_cutoff(days),),
-        ).fetchall()
+        rows = conn.execute(sql, params).fetchall()
     return [_row_to_article(r) for r in rows]
 
 
-def articles_grouped_by_date(days: int) -> list[tuple[str, list[Article]]]:
-    """Return [(date, [articles])] for the homepage, newest date first."""
+def articles_grouped_by_date(
+    days: int, category: str | None = None
+) -> list[tuple[str, list[Article]]]:
+    """Return [(date, [articles])] for the homepage, newest date first.
+
+    When `category` is given, only that category's articles are included.
+    """
     grouped: dict[str, list[Article]] = {}
-    for art in articles_since(days):
+    for art in articles_since(days, category):
         day = art.date_pub[:10]
         grouped.setdefault(day, []).append(art)
     return sorted(grouped.items(), key=lambda kv: kv[0], reverse=True)
+
+
+def prune_articles(days: int) -> int:
+    """Delete article rows older than `days` and return the number removed.
+
+    Only the articles table is pruned; summaries are never deleted.
+    """
+    with _connect() as conn:
+        cur = conn.execute(
+            "DELETE FROM articles WHERE date_pub < ?", (_cutoff(days),)
+        )
+        return cur.rowcount
 
 
 def insert_summary(summary: str, date_range: str) -> None:
