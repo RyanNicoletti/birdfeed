@@ -30,7 +30,8 @@ body {
   padding: 0 1.25rem;
 }
 
-/* Slim single-line bar: brand left, tagline next to it, stats top-right. */
+/* Thin, minimal header: logo + name on line 1, tagline stacked beneath.
+   Stats sit small and unobtrusive on the right of the brand row. */
 .site-header {
   background: var(--card);
   border-bottom: 1px solid var(--border);
@@ -41,9 +42,17 @@ body {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 0.4rem 0.85rem;
-  padding-top: 0.85rem;
-  padding-bottom: 0.85rem;
+  justify-content: space-between;
+  gap: 0.25rem 0.85rem;
+  padding-top: 0.7rem;
+  padding-bottom: 0.7rem;
+}
+
+/* Brand + tagline stack vertically as one block. */
+.brand-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
 }
 
 .brand {
@@ -59,12 +68,11 @@ body {
 }
 
 .tagline {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   color: var(--muted);
 }
 
 .stats {
-  margin-left: auto;
   align-self: flex-start;
   font-size: 0.78rem;
   color: var(--muted);
@@ -174,31 +182,13 @@ body {
   gap: 0.9rem;
 }
 
+/* Plain hyperlink entry: title on top, muted meta line below. No card. */
 .article {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: baseline;
-  column-gap: 0.6rem;
-  row-gap: 0.15rem;
-}
-
-/* Small pill badge naming the article's topic (bird flu, screwworm, ...). */
-.topic-tag {
-  grid-row: 1;
-  align-self: center;
-  font-size: 0.68rem;
-  font-weight: 600;
-  text-transform: lowercase;
-  letter-spacing: 0.02em;
-  color: var(--accent);
-  background: var(--accent-soft);
-  border-radius: 999px;
-  padding: 0.1rem 0.55rem;
-  white-space: nowrap;
+  display: block;
 }
 
 .article-title {
-  grid-row: 1;
+  display: block;
   font-weight: 600;
   font-size: 1.02rem;
   color: var(--ink);
@@ -211,11 +201,34 @@ body {
   text-decoration: underline;
 }
 
+/* Meta line: muted source · date on the left, highlighted tag on the right. */
 .article-meta {
-  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.15rem;
+}
+
+.article-source {
   font-size: 0.78rem;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
+}
+
+/* Highlighted, filled badge naming the article's topic (bird flu, ...).
+   Right-aligned and visually louder than the muted source/date text. */
+.topic-tag {
+  margin-left: auto;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+  color: #ffffff;
+  background: var(--accent);
+  border-radius: 999px;
+  padding: 0.12rem 0.6rem;
+  white-space: nowrap;
 }
 
 .empty {
@@ -250,5 +263,9 @@ body {
   }
   .chevron {
     border-color: var(--ink);
+  }
+  /* Keep the highlighted tag legible: dark ink on the lighter dark-mode accent. */
+  .topic-tag {
+    color: #0d1b2e;
   }
 }

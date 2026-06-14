@@ -9,10 +9,12 @@
   <body>
     <header class="site-header">
       <div class="wrap header-bar">
-        <span class="brand"><span class="logo" aria-hidden="true">🐦</span> Bird Feed</span>
-        <span class="tagline">
-          Avian influenza plus other emerging US viral &amp; biodefense outbreaks.
-        </span>
+        <div class="brand-block">
+          <span class="brand"><span class="logo" aria-hidden="true">🐦</span> Bird Feed</span>
+          <span class="tagline">
+            Emerging news related to Avian influenza and other biodefense related topics
+          </span>
+        </div>
         <span class="stats">
           {{ total }} article{{ '' if total == 1 else 's' }} &middot;
           past {{ window }} days &middot;
@@ -51,9 +53,11 @@
         <ul class="articles">
           {% for a in articles %}
           <li class="article">
-            <span class="topic-tag">{{ a.topic }}</span>
             <a class="article-title" href="{{ a.link }}" target="_blank" rel="noopener noreferrer">{{ a.title }}</a>
-            <span class="article-meta">{{ a.source }} &middot; {{ a.fetched_at[:10] }}</span>
+            <span class="article-meta">
+              <span class="article-source">{{ a.source }} &middot; {{ a.fetched_at[:10] }}</span>
+              <span class="topic-tag">{{ a.topic }}</span>
+            </span>
           </li>
           {% endfor %}
         </ul>
